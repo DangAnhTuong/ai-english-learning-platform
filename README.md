@@ -303,6 +303,35 @@ Stop:
 docker compose -f docker-compose.prod.yml down
 ```
 
+### Create Admin Account
+
+After services are up and MongoDB is healthy, create or promote an admin account:
+
+For development stack:
+
+```bash
+docker exec -e ADMIN_EMAIL=admin@yourdomain.com -e ADMIN_PASSWORD=YourStrongPassword123! -e ADMIN_NAME="System Admin" -it wle-backend-node-dev node scripts/create-admin.js
+```
+
+For production stack:
+
+```bash
+docker exec -e ADMIN_EMAIL=admin@yourdomain.com -e ADMIN_PASSWORD=YourStrongPassword123! -e ADMIN_NAME="System Admin" -it wle-backend-node-prod node scripts/create-admin.js
+```
+
+Local Node backend (without Docker):
+
+```bash
+cd backend/backend-node
+node scripts/create-admin.js
+```
+
+Script behavior:
+
+- Creates a new admin if email does not exist.
+- Promotes existing user to `admin` if found by email.
+- Marks admin as active and email-verified.
+
 ## 10. Verification Checklist
 
 ### Status and Logs
