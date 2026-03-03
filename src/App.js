@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { checkAuth } from './redux/authSlice';
+import { checkAuth, logout } from './redux/authSlice';
 import Allroutes from './components/allroutes';
 import './App.css';
 import AOS from 'aos';     // Thư viện hiệu ứng trồi lên
@@ -9,9 +9,27 @@ import SmoothScroll from './components/smooth_scroll'; // Component cuộn mư�
 
 function App() {
   const dispatch = useDispatch();
-  // --useEffect 1: Kiểm tra đăng nhập 
+  // --useEffect 1: Kiểm tra đăng nhập và validate token
   useEffect(() => {
-    dispatch(checkAuth()); 
+    dispatch(checkAuth());
+    
+    // Kiểm tra token hợp lệ bằng cách gọi API /auth/me
+    const validateToken = async () => {
+      const token = localStorage.getItem('accessToken');
+      if (token) {
+        try {
+          const api = (await import('./services/api')).default;
+          await api.get('/auth/me');
+        } catch (error) {
+          // Token không hợp lệ -> logout
+          if (error.response?.status === 401) {
+            dispatch(logout());
+          }
+        }
+      }
+    };
+    
+    validateToken();
   }, [dispatch]);
 
   // --- useEffect 2: Cấu hình AOS & Tự động gắn hiệu ứng

@@ -1,0 +1,133 @@
+name: web-learn-english-prod
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        REACT_APP_API_URL: /api/v1
+        REACT_APP_PYTHON_API_URL: /python-api
+    container_name: wle-frontend-prod
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      backend-node:
+        condition: service_healthy
+      backend-python:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    networks:
+      - app-network
+
+  backend-node:
+    build:
+      context: ./backend/backend-node
+      dockerfile: Dockerfile
+      target: production
+    container_name: wle-backend-node-prod
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      FRONTEND_URL: http://localhost
+      MONGO_URI: mongodb://mongo:27017/englishdb_nodejs
+      PYTHON_API_URL: http://backend-python:8000
+      REQUIRE_COURSE_CONTENT_FOR_PUBLISH: "true"
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./backend/backend-node/.env:/app/.env:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+      backend-python:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:' + (process.env.PORT || 3001) + '/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks:
+      - app-network
+
+  backend-python:
+    build:
+      context: ./backend/backend-python
+      dockerfile: Dockerfile
+      target: production
+    container_name: wle-backend-python-prod
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 8000
+      DEBUG: "false"
+      MONGODB_URL: mongodb://mongo:27017
+      DATABASE_NAME: english_learning
+      ALLOWED_ORIGINS: http://localhost,http://localhost:3000,http://localhost:3001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/backend-python/.env:/app/.env:ro
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 25s
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:7
+    container_name: wle-mongo-prod
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: englishdb_nodejs
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - app-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: wle-redis-prod
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    networks:
+      - app-network
+
+volumes:
+  mongo_data:
+  redis_data:
+
+networks:
+  app-network:
+    driver: bridge

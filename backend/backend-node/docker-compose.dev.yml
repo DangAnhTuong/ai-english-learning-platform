@@ -1,0 +1,24 @@
+version: '3.8'
+
+# Development override file
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+
+services:
+  backend-api:
+    # Override for development
+    environment:
+      - NODE_ENV=development
+      - PORT=1444
+      # CORS: Cho phép tất cả origins trong development
+      - CORS_ALLOWLIST=
+    # Expose port để dev có thể test trực tiếp
+    ports:
+      - "1444:1444"
+    # Mount source code để hot reload (nếu dùng nodemon)
+    volumes:
+      - ./src:/app/src:ro
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+
+
+

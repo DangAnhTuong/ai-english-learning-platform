@@ -1,0 +1,111 @@
+version: '3.8'
+
+services:
+  # Frontend (React + Vite)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: english-learning-frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - NODE_ENV=production
+      - VITE_API_URL=https://speakeasy.nguyentrungnam.com/api
+      - VITE_WS_CHAT_URL=wss://speakeasy.nguyentrungnam.com/ws/chat
+    volumes:
+      - ./frontend/dist:/usr/share/nginx/html
+      - ./nginx-frontend.conf:/etc/nginx/nginx.conf
+    restart: unless-stopped
+    depends_on:
+      - backend-node
+    networks:
+      - english-learning-network
+
+  # Backend Node.js Gateway
+  backend-node:
+    build:
+      context: ./backend-node/gateway
+      dockerfile: Dockerfile
+    container_name: english-learning-gateway
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - PYTHON_BACKEND_URL=http://backend-python:1423
+      - ALLOWED_ORIGINS=https://speakeasy.nguyentrungnam.com
+    volumes:
+      - ./backend-node/gateway/uploads:/app/uploads
+    restart: unless-stopped
+    depends_on:
+      - backend-python
+    networks:
+      - english-learning-network
+
+  # Backend Python AI Services
+  backend-python:
+    build:
+      context: ./backend-python
+      dockerfile: Dockerfile
+    container_name: english-learning-api
+    ports:
+      - "1423:1423"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - DEEPGRAM_API_KEY=${DEEPGRAM_API_KEY}
+      - HOST=0.0.0.0
+      - PORT=1423
+      - DEBUG=false
+      - ENVIRONMENT=production
+      - LOG_LEVEL=info
+      - ALLOWED_ORIGINS=https://speakeasy.nguyentrungnam.com
+    volumes:
+      - ./backend-python/uploads:/app/uploads
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:1423/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - english-learning-network
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: english-learning-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - english-learning-network
+
+  # PostgreSQL for database (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: english-learning-db
+    environment:
+      - POSTGRES_DB=english_learning
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - english-learning-network
+
+volumes:
+  redis_data:
+  postgres_data:
+
+
+networks:
+  english-learning-network:
+    driver: bridge

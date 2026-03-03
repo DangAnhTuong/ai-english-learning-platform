@@ -65,6 +65,7 @@ function Layout() {
                             <nav className="layout__menu">
                                 <ul>
                                     <li><NavLink to="/">Trang chủ</NavLink></li>
+                                    <li><NavLink to="/courses">Khóa học</NavLink></li>
                                     <li><NavLink to="/conversation">Luyện hội thoại</NavLink></li>
                                     {isLogin && <li><NavLink to="/mindmap">Từ vựng</NavLink></li>}
                                     {isLogin && <li><NavLink to="/chatbox">Chat Box</NavLink></li>}

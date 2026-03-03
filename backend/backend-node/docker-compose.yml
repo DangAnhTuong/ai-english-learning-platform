@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:7.0
+    container_name: backend-node-mongodb
+    restart: unless-stopped
+    # Không expose port ra ngoài, chỉ dùng trong internal network
+    expose:
+      - "27017"
+    environment:
+      - MONGO_INITDB_DATABASE=englishdb_nodejs
+    volumes:
+      - mongodb_data:/data/db
+      - mongodb_config:/data/configdb
+    networks:
+      - backend-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # Node.js Backend API
+  backend-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: backend-node-api
+    restart: unless-stopped
+    # Load environment variables from .env file
+    env_file:
+      - .env
+    # Expose port ra ngoài để nginx trên host có thể kết nối
+    # Map port động: host_port:container_port (container port = PORT env)
+    ports:
+      - "${BACKEND_PORT:-1444}:${PORT:-1444}"
+    environment:
+      # Server Configuration (có thể override từ .env)
+      - NODE_ENV=${NODE_ENV:-production}
+      - PORT=${PORT:-1444}
+      - API_PREFIX=${API_PREFIX:-/api/v1}
+
+      # Database Configuration
+      # Force MongoDB URI for Docker (must use service name 'mongodb', not 'localhost')
+      - MONGO_URI=mongodb://mongodb:27017/englishdb_nodejs
+
+      # JWT Configuration (phải set trong .env)
+      - JWT_SECRET=${JWT_SECRET:-}
+      - REFRESH_SECRET=${REFRESH_SECRET:-${JWT_SECRET:-}}
+      - JWT_ISS=${JWT_ISS:-gateway.api}
+      - JWT_AUD=${JWT_AUD:-web.app}
+
+      # Google OAuth (optional, set trong .env nếu dùng)
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID:-}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET:-}
+      - GOOGLE_CALLBACK_URL=${GOOGLE_CALLBACK_URL:-https://speakeasy.nguyentrungnam.com/api/v1/auth/google/callback}
+
+      # Email Configuration (set trong .env)
+      - SMTP_HOST=${SMTP_HOST:-smtp.gmail.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+
+      # Frontend URL (set trong .env)
+      - FRONTEND_URL=${FRONTEND_URL:-https://speakeasy.nguyentrungnam.com}
+
+      # Security (phải set trong .env)
+      - PWD_PEPPER=${PWD_PEPPER:-}
+      - SESSION_SECRET=${SESSION_SECRET:-${JWT_SECRET:-}}
+
+      # CORS Configuration
+      # Development: Để trống hoặc set "*" để cho phép tất cả
+      # Production: Set danh sách domain cụ thể
+      - CORS_ALLOWLIST=${CORS_ALLOWLIST:-}
+    volumes:
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - backend-network
+    healthcheck:
+      test: [ "CMD", "node", "-e", "const port = process.env.PORT || 1444; require('http').get(`http://localhost:${port}/health`, (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  mongodb_data:
+    driver: local
+  mongodb_config:
+    driver: local
+
+networks:
+  backend-network:
+    driver: bridge
+    name: backend-network

@@ -1,86 +1,135 @@
-import { Row, Col, Button } from 'antd';
+import { Row, Col, Button, Card, Spin, Rate, Tag, Empty, Alert } from 'antd';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
-    ArrowRightOutlined, AudioOutlined, BankOutlined, CarOutlined,
-    CheckCircleFilled, ClusterOutlined, CoffeeOutlined, DashboardOutlined,
-    GlobalOutlined, HeartOutlined, ReadOutlined, RightOutlined,
-    RiseOutlined, RobotOutlined, ShopOutlined, StarFilled
+    ArrowRightOutlined, AudioOutlined,
+    CheckCircleFilled, ClusterOutlined, DashboardOutlined,
+    RightOutlined, RobotOutlined, StarFilled,
+    BookOutlined, UserOutlined, CommentOutlined
 } from '@ant-design/icons';
+import { courseService } from '../../services/courseService';
+import { conversationService } from '../../services/conversationService';
+import { subscriptionService } from '../../services/subscriptionService';
 import s1 from "../../img/nentienganhmain.jpg";
 import "./style.css"; 
 
-// Dữ liệu gói cước (Pricing)
-const PACKAGES = [
-    {
-        id: 1,
-        name: 'CƠ BẢN',
-        type: 'basic',
-        price: '199.000đ',
-        duration: '/ 1 tháng',
-        features: ['Truy cập mọi bài học', 'Luyện nói AI cơ bản', 'Tra từ điển Mindmap'],
-        discount: null
-    },
-    {
-        id: 2,
-        name: 'TIÊU CHUẨN',
-        type: 'standard',
-        price: '499.000đ',
-        duration: '/ 3 tháng',
-        features: ['Tất cả tính năng Cơ bản', 'Luyện nói không giới hạn', 'Không quảng cáo', 'Tiết kiệm 20%'],
-        discount: '-20%'
-    },
-    {
-        id: 3,
-        name: 'CAO CẤP',
-        type: 'premium',
-        price: '899.000đ',
-        duration: '/ 6 tháng',
-        features: ['Full tính năng Tiêu chuẩn', 'Chứng chỉ hoàn thành', 'Hỗ trợ 1-1 ưu tiên', 'Tiết kiệm 40%'],
-        discount: '-40%'
-    }
-];
-const ALL_TOPICS = [
-    { icon: <CoffeeOutlined />, title: 'Giao tiếp hàng ngày', count: '120 bài' },
-    { icon: <GlobalOutlined />, title: 'Du lịch & Khám phá', count: '85 bài' },
-    { icon: <ShopOutlined />, title: 'Mua sắm', count: '40 bài' },
-    { icon: <BankOutlined />, title: 'Nhà hàng & Khách sạn', count: '60 bài' },
-    { icon: <RiseOutlined />, title: 'Tiếng Anh Công sở', count: '150 bài' },
-    { icon: <HeartOutlined />, title: 'Sức khỏe & Đời sống', count: '55 bài' },
-    { icon: <ReadOutlined />, title: 'Giáo dục', count: '90 bài' },
-    { icon: <CarOutlined />, title: 'Giao thông', count: '45 bài' },
-    // --- Các chủ đề bị ẩn (Sẽ hiện ra khi bấm nút) ---
-    { icon: <DashboardOutlined />, title: 'Công nghệ thông tin', count: '70 bài' },
-    { icon: <StarFilled />, title: 'Giải trí & Điện ảnh', count: '30 bài' },
-    { icon: <RobotOutlined />, title: 'Khoa học & Vũ trụ', count: '25 bài' },
-    { icon: <ClusterOutlined />, title: 'Kinh doanh & Khởi nghiệp', count: '100 bài' },
-];
+/**
+ * Icon mapping cho topics - dùng để hiển thị icon trên UI
+ * Key là tên topic (lowercase, underscore), value là emoji
+ */
+const TOPIC_ICON_MAP = {
+    'restaurant': '🍽️', 'shopping': '🛍️', 'job_interview': '💼',
+    'travel': '✈️', 'business_meeting': '🏢', 'medical_appointment': '🏥',
+    'education': '🎓', 'friendship': '👥', 'family': '👨‍👩‍👧‍👦',
+    'hobbies': '🎨', 'sports': '⚽', 'technology': '💻',
+    'food': '🍔', 'weather': '🌤️', 'health': '💪',
+    'movies': '🎬', 'music': '🎵', 'work': '💼',
+    'daily_life': '🏠', 'school': '📚',
+};
+
 function Home() {
     const navigate = useNavigate();
+    const [featuredCourses, setFeaturedCourses] = useState([]);
+    const [loadingCourses, setLoadingCourses] = useState(false);
+    const [plans, setPlans] = useState([]);
+    const [topics, setTopics] = useState([]);
+    const [isExpanded, setIsExpanded] = useState(false);
 
+    useEffect(() => {
+        loadFeaturedCourses();
+        loadPlans();
+        loadTopics();
+    }, []);
+
+    // Lấy khóa học nổi bật từ API
+    const loadFeaturedCourses = async () => {
+        try {
+            setLoadingCourses(true);
+            const response = await courseService.getFeaturedCourses();
+            if (response.success && response.data) {
+                setFeaturedCourses(response.data.courses?.slice(0, 6) || []);
+            }
+        } catch (error) {
+            console.error('Load featured courses error:', error);
+        } finally {
+            setLoadingCourses(false);
+        }
+    };
+
+    // Lấy gói cước từ backend API /subscriptions/plans
+    const loadPlans = async () => {
+        try {
+            const response = await subscriptionService.getPlans();
+            if (response.success && response.data) {
+                setPlans(response.data);
+            }
+        } catch (error) {
+            console.error('Load plans error:', error);
+        }
+    };
+
+    // Lấy danh sách chủ đề hội thoại từ backend API /conversations/topics
+    const loadTopics = async () => {
+        try {
+            const response = await conversationService.getTopics();
+            if (response.success && response.data) {
+                setTopics(response.data);
+            }
+        } catch (error) {
+            console.error('Load topics error:', error);
+        }
+    };
+
+    // Capitalize chuẩn cho tiếng Việt
+    const capitalizeWords = (str) => {
+        if (!str) return '';
+        return str
+            .replace(/_/g, ' ')
+            .split(' ')
+            .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+            .join(' ');
+    };
+
+    // Xây dựng danh sách topics hiển thị với icon
+    const topicsWithIcon = useMemo(() => {
+        return topics.map(topic => {
+            const key = topic.name?.toLowerCase().replace(/\s+/g, '_');
+            return {
+                key,
+                title: capitalizeWords(topic.name),
+                count: `${topic.count || 0} hội thoại`,
+                icon: TOPIC_ICON_MAP[key] || '💬'
+            };
+        });
+    }, [topics]);
+
+    const displayedTopics = isExpanded ? topicsWithIcon : topicsWithIcon.slice(0, 8);
+
+    const formatPrice = (price, currency = 'VND') => {
+        if (!price || price === 0) return 'Miễn phí';
+        return new Intl.NumberFormat('vi-VN').format(price) + ' đ';
+    };
+
+    const formatPriceVND = (price) => {
+        if (!price) return '0đ';
+        return new Intl.NumberFormat('vi-VN').format(price) + 'đ';
+    };
+
+    // Chuyển hướng đến trang thanh toán với gói đã chọn
     const handleRegister = (pkg) => {
-        // 1. Xử lý giá tiền: "199.000đ" -> 199000
-        const rawPrice = parseInt(pkg.price.toString().replace(/\./g, '').replace('đ', ''));
-        
-        // 2. Xử lý thời hạn: "/ 3 tháng" -> 3
-        const durationMatch = pkg.duration.match(/\d+/);
-        const durationNum = durationMatch ? parseInt(durationMatch[0]) : 1;
-
-        // 3. Chuyển hướng và gửi state đúng cấu trúc 'selectedPackage'
         navigate('/payment', { 
             state: { 
                 selectedPackage: {   
                     id: pkg.id,
                     name: pkg.name, 
-                    price: rawPrice, 
-                    duration: durationNum 
+                    price: pkg.price, 
+                    duration: Math.round(pkg.duration / 30), // days -> months
+                    plan: pkg.type
                 }
             } 
         });
     };
-    const [isExpanded, setIsExpanded] = useState(false);
-    const displayedTopics = isExpanded ? ALL_TOPICS : ALL_TOPICS.slice(0, 8);
 
     return (
         <>
@@ -172,7 +221,102 @@ function Home() {
                 </div>
             </div>
 
-            {/* 3. TOPICS SECTION */}
+            {/* 3. FEATURED COURSES SECTION */}
+            <div className="section-featured-courses" style={{ padding: '60px 0', background: '#f5f5f5' }}>
+                <div className="container">
+                    <div className="section-title">
+                        <h2>Khóa học nổi bật</h2>
+                        <p>Những khóa học được đánh giá cao nhất từ cộng đồng</p>
+                    </div>
+                    {loadingCourses ? (
+                        <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                            <Spin size="large" />
+                        </div>
+                    ) : featuredCourses.length === 0 ? (
+                        <>
+                            <Alert
+                                type="info"
+                                showIcon
+                                style={{ marginBottom: 16 }}
+                                message="Hiện chưa có khóa học nổi bật từ backend."
+                                description="Đây là dữ liệu thật từ API. Khi có khóa học public/published, mục này sẽ tự hiển thị."
+                            />
+                            <Empty description="Chưa có khóa học nổi bật" />
+                        </>
+                    ) : (
+                        <Row gutter={[24, 24]}>
+                            {featuredCourses.map(course => (
+                                <Col xs={24} sm={12} md={8} key={course._id || course.id}>
+                                    <Card
+                                        hoverable
+                                        style={{ height: '100%', borderRadius: 8 }}
+                                        cover={
+                                            <div
+                                                style={{
+                                                    height: 160,
+                                                    background: course.thumbnail
+                                                        ? `url(${course.thumbnail}) center/cover`
+                                                        : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    color: 'white',
+                                                    fontSize: 40,
+                                                }}
+                                                onClick={() => navigate(`/courses/${course._id || course.id}`)}
+                                            >
+                                                {!course.thumbnail && <BookOutlined />}
+                                            </div>
+                                        }
+                                        onClick={() => navigate(`/courses/${course._id || course.id}`)}
+                                    >
+                                        <div>
+                                            <div style={{ marginBottom: 8 }}>
+                                                {course.level && <Tag>{course.level}</Tag>}
+                                                {course.enrollmentType === 'free' && <Tag color="green">Miễn phí</Tag>}
+                                            </div>
+                                            <h3 style={{ fontSize: 16, fontWeight: 'bold', marginBottom: 8, minHeight: 48 }}>
+                                                {course.title}
+                                            </h3>
+                                            <p
+                                                style={{
+                                                    fontSize: 13,
+                                                    color: '#666',
+                                                    marginBottom: 12,
+                                                    display: '-webkit-box',
+                                                    WebkitLineClamp: 2,
+                                                    WebkitBoxOrient: 'vertical',
+                                                    overflow: 'hidden',
+                                                }}
+                                            >
+                                                {course.shortDescription || course.description}
+                                            </p>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                                <Rate disabled defaultValue={course.averageRating || 0} allowHalf style={{ fontSize: 12 }} />
+                                                <span style={{ fontSize: 11, color: '#999' }}>
+                                                    <UserOutlined /> {course.enrolledStudents || 0}
+                                                </span>
+                                            </div>
+                                            <div style={{ textAlign: 'right', marginTop: 12 }}>
+                                                <span style={{ fontSize: 16, fontWeight: 'bold', color: '#1890ff' }}>
+                                                    {formatPrice(course.price, course.currency)}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </Col>
+                            ))}
+                        </Row>
+                    )}
+                    <div style={{ textAlign: 'center', marginTop: 30 }}>
+                        <Button type="primary" size="large" onClick={() => navigate('/courses')}>
+                            Xem tất cả khóa học <ArrowRightOutlined />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* 4. TOPICS SECTION - Lấy động từ API */}
             <div className="section3">
             <div className="container">
                 <div className="section-title">
@@ -180,39 +324,45 @@ function Home() {
                     <p>Lựa chọn lộ trình phù hợp với mục tiêu của bạn</p>
                 </div>
                 
-                {/* 4. RENDER DANH SÁCH ĐÃ TÍNH TOÁN */}
-                <Row gutter={[20, 20]}>
-    {displayedTopics.map((item, index) => (
-        <Col xs={12} sm={8} md={6} key={index}>
-            {/* THÊM SỰ KIỆN onClick VÀO ĐÂY */}
-            <div 
-                className="topic-card" 
-                onClick={() => navigate('/conversation')} 
-                style={{ cursor: 'pointer' }}          
-            >
-                <div className="topic-icon">{item.icon}</div>
-                <div className="topic-info">
-                    <h4>{item.title}</h4>
-                    <span>{item.count}</span>
-                </div>
-            </div>
-        </Col>
-    ))}
-</Row>
+                {topicsWithIcon.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                        <CommentOutlined style={{ fontSize: 48, color: '#ccc' }} />
+                        <p style={{ color: '#999', marginTop: 16 }}>Đang tải danh sách chủ đề...</p>
+                    </div>
+                ) : (
+                    <Row gutter={[20, 20]}>
+                        {displayedTopics.map((item, index) => (
+                            <Col xs={12} sm={8} md={6} key={item.key || index}>
+                                <div 
+                                    className="topic-card" 
+                                    onClick={() => navigate('/conversation')} 
+                                    style={{ cursor: 'pointer' }}          
+                                >
+                                    <div className="topic-icon">{item.icon}</div>
+                                    <div className="topic-info">
+                                        <h4>{item.title}</h4>
+                                        <span>{item.count}</span>
+                                    </div>
+                                </div>
+                            </Col>
+                        ))}
+                    </Row>
+                )}
                 
-                {/* 5. NÚT BẤM ĐỔI TRẠNG THÁI */}
-                <div style={{ textAlign: 'center', marginTop: '40px' }}>
-                    <Button 
-                        className="btn-outline" 
-                        onClick={() => setIsExpanded(!isExpanded)} // Đảo ngược trạng thái
-                    >
-                        {isExpanded ? "Thu gọn danh sách" : "Xem tất cả chủ đề"}
-                    </Button>
-                </div>
+                {topicsWithIcon.length > 8 && (
+                    <div style={{ textAlign: 'center', marginTop: '40px' }}>
+                        <Button 
+                            className="btn-outline" 
+                            onClick={() => setIsExpanded(!isExpanded)}
+                        >
+                            {isExpanded ? "Thu gọn danh sách" : `Xem tất cả ${topicsWithIcon.length} chủ đề`}
+                        </Button>
+                    </div>
+                )}
             </div>
         </div>
 
-            {/* 4. TEST BANNER */}
+            {/* 5. TEST BANNER */}
             <div className="section-test">
                 <div className="container">
                     <div className="test-banner">
@@ -248,31 +398,31 @@ function Home() {
                 </div>
             </div>
 
-            {/* 5. PRICING SECTION */}
+            {/* 6. PRICING SECTION - Lấy từ API /subscriptions/plans */}
             <div className="home-pricing-section">
                 <div className="container">
                     <h2 className="pricing-title">Chọn lộ trình thành công</h2>
                     <p className="pricing-subtitle">Đầu tư nhỏ cho kết quả lớn. Bắt đầu ngay hôm nay!</p>
 
                     <div className="pricing-container">
-                        {PACKAGES.map((pkg) => (
+                        {plans.map((pkg) => (
                             <div key={pkg.id} className="pricing-card" onClick={() => handleRegister(pkg)}>
-                                <div className={`card-header ${pkg.type}`}>
-                                    {pkg.name}
+                                <div className={`card-header ${pkg.type || pkg.id}`}>
+                                    {pkg.name?.toUpperCase()}
                                 </div>
-                                {pkg.discount && <div className="discount-badge">{pkg.discount}</div>}
+                                {pkg.discount && <div className="discount-badge">-{pkg.discount}%</div>}
                                 <div className="card-body">
-                                    <div className="price-text">{pkg.price}</div>
-                                    <div className="price-duration">{pkg.duration}</div>
+                                    <div className="price-text">{formatPriceVND(pkg.price)}</div>
+                                    <div className="price-duration">/ {pkg.durationLabel || `${Math.round(pkg.duration / 30)} tháng`}</div>
                                     <ul className="feature-list">
-                                        {pkg.features.map((feat, index) => (
+                                        {(pkg.features || []).map((feat, index) => (
                                             <li key={index}>
                                                 <CheckCircleFilled style={{ color: '#52c41a', marginRight: 8 }} />
                                                 {feat}
                                             </li>
                                         ))}
                                     </ul>
-                                    <button className={`btn-choose ${pkg.type}`}>
+                                    <button className={`btn-choose ${pkg.type || pkg.id}`}>
                                         Đăng ký ngay
                                     </button>
                                 </div>
@@ -282,7 +432,7 @@ function Home() {
                 </div>
             </div>
 
-            {/* 6. CTA FINAL */}
+            {/* 7. CTA FINAL */}
             <div className="section4-cta">
     <div className="container">
         <Row justify="center" align="middle">

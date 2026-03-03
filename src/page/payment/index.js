@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { 
   Card, Row, Col, Typography, Button, Descriptions, message, Spin, Result, Alert, Divider 
 } from 'antd';
@@ -7,6 +8,7 @@ import {
   CheckCircleOutlined, LeftOutlined, SafetyCertificateFilled, BankOutlined 
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { orderService } from '../../services/orderService';
 
 const { Title, Text } = Typography;
 
@@ -32,8 +34,17 @@ const removeVietnameseTones = (str) => {
 const PaymentPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user, isLogin } = useSelector((state) => state.auth);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [orderId, setOrderId] = useState(null);
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!isLogin) {
+      navigate('/login');
+    }
+  }, [isLogin, navigate]);
 
   // --- 1. LẤY DỮ LIỆU GÓI CƯỚC ---
   const incomingPackage = location.state?.selectedPackage;
@@ -69,34 +80,63 @@ const PaymentPage = () => {
   const displayQrSource = BANK_INFO.QR_IMAGE ? BANK_INFO.QR_IMAGE : qrUrl;
 
   // --- [QUAN TRỌNG] HÀM XỬ LÝ THANH TOÁN KHỚP VỚI ADMIN ---
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
+    if (!isLogin) {
+      message.error('Vui lòng đăng nhập để tiếp tục');
+      navigate('/login');
+      return;
+    }
+
     setLoading(true);
     
-    // Giả lập độ trễ mạng
-    setTimeout(() => {
-        setLoading(false);
+    try {
+      // 1. Tạo đơn hàng qua API
+      const orderData = {
+        package: {
+          name: planData.name,
+          duration: planData.duration * 30, // Convert months to days
+          plan: 'basic' // Có thể map từ planData nếu có
+        },
+        amount: planData.price,
+        currency: 'VND',
+        paymentMethod: 'bank_transfer',
+        transferContent: transferContent,
+        bankInfo: {
+          bankName: BANK_INFO.BANK_NAME,
+          accountNo: BANK_INFO.ACCOUNT_NO,
+          accountName: BANK_INFO.ACCOUNT_NAME
+        },
+        metadata: {
+          ipAddress: null, // Có thể lấy từ request nếu cần
+          userAgent: navigator.userAgent,
+          referrer: document.referrer
+        }
+      };
+
+      const response = await orderService.createOrder(orderData);
+      
+      if (response.success && response.data.order) {
+        setOrderId(response.data.order._id || response.data.order.id);
         setIsSuccess(true);
-        
-        // 1. Tạo object đơn hàng chuẩn với cấu trúc Admin cần
-        const newOrder = {
-            key: `ORD${Date.now()}`,       // Mã đơn duy nhất
-            userCode: 'HV_ONLINE',         // Giả lập User đang đăng nhập
-            userName: 'Học Viên Mới',      // Giả lập tên User
-            package: planData.name,        // Tên gói
-            level: 'Cơ bản',               // Level giả định
-            price: planData.price,         // Giá tiền (Số nguyên, không format string)
-            date: dayjs().format('YYYY-MM-DD'), // Định dạng ngày Admin dùng để lọc
-            status: 'pending'              // Trạng thái: Chờ xử lý
-        };
-
-        // 2. Lấy danh sách cũ từ kho 'transaction_history' (Kho Admin đọc)
-        const currentHistory = JSON.parse(localStorage.getItem('transaction_history') || '[]');
-        
-        // 3. Thêm đơn mới vào đầu danh sách
-        localStorage.setItem('transaction_history', JSON.stringify([newOrder, ...currentHistory]));
-
-        message.success('Đã gửi xác nhận thanh toán!');
-    }, 2000);
+        message.success('Đã tạo đơn hàng thành công! Vui lòng chờ admin xác nhận thanh toán.');
+      } else {
+        throw new Error(response.message || 'Không thể tạo đơn hàng');
+      }
+    } catch (error) {
+      console.error('Create order error:', error);
+      
+      // Handle validation errors with details
+      if (error.response?.status === 422 && error.response?.data?.errors) {
+        const validationErrors = error.response.data.errors;
+        const errorMessages = validationErrors.map(err => `${err.field}: ${err.message}`).join(', ');
+        message.error(`Dữ liệu không hợp lệ: ${errorMessages}`);
+      } else {
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || 'Không thể tạo đơn hàng. Vui lòng thử lại!';
+        message.error(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (isSuccess) {

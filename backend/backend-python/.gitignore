@@ -1,0 +1,7 @@
+.env
+.env.backup
+deploy.sh
+venv
+env.example
+nginx.conf
+pytest.ini

@@ -3,9 +3,11 @@ import { Form, Input, Button, message, Divider } from 'antd';
 import { UserOutlined, LockOutlined, MailOutlined, PhoneOutlined, GoogleOutlined, FacebookFilled } from '@ant-design/icons';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
-import { login } from '../../redux/authSlice';
+import { loginSuccess, loginStart, loginFailure } from '../../redux/authSlice';
+import { authService } from '../../services/authService';
 import './style.css'; 
 import registerImg from '../../img/brainn.jpg'; // Dùng chung ảnh với login
+import defaultUserAvatar from '../../img/avatar.jpg';
 
 function Register() {
   const navigate = useNavigate();
@@ -13,39 +15,83 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
-  // --- GIẢ LẬP ĐĂNG KÝ SOCIAL ---
-  const handleFakeSocialLogin = (platform) => {
+  // --- ĐĂNG KÝ BẰNG GOOGLE ---
+  const handleGoogleLogin = () => {
     setSocialLoading(true);
-    setTimeout(() => {
-        setSocialLoading(false);
-        const fakeUser = {
-            name: platform === 'Google' ? 'Lê Trí Thiện (Google)' : 'Lê Trí Thiện (FB)',
-            email: 'letrithien@gmail.com',
-            avatar: registerImg,
-            role: 'user',
-        };
-        dispatch(login(fakeUser));
-        message.success(`Đăng ký bằng ${platform} thành công!`);
-        navigate('/');
-    }, 1500);
+    // Redirect đến Google OAuth endpoint
+    const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+    window.location.href = `${apiBaseUrl}/auth/google`;
   };
 
-  // --- GIẢ LẬP ĐĂNG KÝ THƯỜNG ---
-  const onFinish = (values) => {
+  // --- ĐĂNG KÝ THƯỜNG ---
+  const onFinish = async (values) => {
     setLoading(true);
-    setTimeout(() => {
-        setLoading(false);
-        const newUser = {
-          name: values.fullName,
-          email: values.email,
-          phone: values.phone,
-          avatar: registerImg,
-          role: 'user'
+    dispatch(loginStart());
+    
+    try {
+      // Validate password
+      if (values.password.length < 6) {
+        throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
+      }
+
+      const response = await authService.register({
+        fullName: values.fullName,
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+      });
+
+      // Backend trả về trực tiếp { user, accessToken, refreshToken }
+      // Hoặc có thể wrap trong { success: true, data: {...} }
+      const data = response.data || response;
+      
+      if (data.user && data.accessToken && data.refreshToken) {
+        const { user, accessToken, refreshToken } = data;
+        
+        // Format user data
+        const userData = {
+          id: user._id || user.id,
+          name: user.name,
+          email: user.email,
+          phone: user.phone,
+          avatar: user.avatar || defaultUserAvatar,
+          roles: user.roles || ['student'],
+          status: user.status,
+          isEmailVerified: user.isEmailVerified || false,
         };
-        dispatch(login(newUser));
+
+        // Dispatch success với tokens
+        dispatch(loginSuccess({
+          user: userData,
+          accessToken,
+          refreshToken,
+        }));
+
         message.success('Đăng ký tài khoản thành công!');
+        message.info('Vui lòng kiểm tra email để xác thực tài khoản của bạn.');
+        
         navigate('/');
-    }, 1000);
+      } else {
+        throw new Error(response.error || data.error || 'Đăng ký thất bại');
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Đăng ký thất bại. Vui lòng thử lại!';
+      dispatch(loginFailure(errorMessage));
+      
+      // Hiển thị lỗi cụ thể
+      if (errorMessage.includes('Email đã được đăng ký')) {
+        message.error('Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác!');
+      } else if (errorMessage.includes('Tên người dùng đã được sử dụng')) {
+        message.error('Tên người dùng này đã tồn tại. Vui lòng chọn tên khác!');
+      } else if (errorMessage.includes('Số điện thoại đã được đăng ký')) {
+        message.error('Số điện thoại này đã được sử dụng!');
+      } else {
+        message.error(errorMessage);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -90,9 +136,30 @@ function Register() {
 
             <Form.Item
               name="password"
-              rules={[{ required: true, message: 'Vui lòng tạo mật khẩu!' }]}
+              rules={[
+                { required: true, message: 'Vui lòng tạo mật khẩu!' },
+                { min: 6, message: 'Mật khẩu phải có ít nhất 6 ký tự!' }
+              ]}
             >
-              <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu" />
+              <Input.Password prefix={<LockOutlined />} placeholder="Mật khẩu (tối thiểu 6 ký tự)" />
+            </Form.Item>
+
+            <Form.Item
+              name="confirmPassword"
+              dependencies={['password']}
+              rules={[
+                { required: true, message: 'Vui lòng xác nhận mật khẩu!' },
+                ({ getFieldValue }) => ({
+                  validator(_, value) {
+                    if (!value || getFieldValue('password') === value) {
+                      return Promise.resolve();
+                    }
+                    return Promise.reject(new Error('Mật khẩu xác nhận không khớp!'));
+                  },
+                }),
+              ]}
+            >
+              <Input.Password prefix={<LockOutlined />} placeholder="Xác nhận mật khẩu" />
             </Form.Item>
 
             <Button type="primary" htmlType="submit" block className="btn-auth" loading={loading}>
@@ -107,15 +174,15 @@ function Register() {
                 block 
                 icon={<GoogleOutlined />} 
                 loading={socialLoading}
-                onClick={() => handleFakeSocialLogin('Google')}
+                onClick={handleGoogleLogin}
             >
                 Google
             </Button>
             <Button 
                 block 
                 icon={<FacebookFilled style={{color: '#3b5998'}}/>} 
-                loading={socialLoading}
-                onClick={() => handleFakeSocialLogin('Facebook')}
+                disabled
+                onClick={() => message.info('Tính năng đang phát triển')}
             >
                 Facebook
             </Button>

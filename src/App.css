@@ -1,4 +1,3 @@
-
 .App-logo {
   height: 40vmin;
   pointer-events: none;
@@ -29,7 +28,18 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Hide scrollbar but keep scroll functionality */
+.modal-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Prevent double scrollbar on modal */
+.ant-modal-body {
+  overflow: visible !important;
 }
