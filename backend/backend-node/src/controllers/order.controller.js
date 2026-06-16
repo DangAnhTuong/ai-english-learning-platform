@@ -145,6 +145,50 @@ const OrderController = {
             success: true,
             data: stats
         });
+    }),
+
+    /**
+     * Webhook nhận dữ liệu từ SePay/Casso (Tự động hóa thanh toán)
+     * POST /api/v1/orders/webhook/sepay
+     */
+    sepayWebhook: asyncHandler(async (req, res) => {
+        const payload = req.body;
+        // Dữ liệu mẫu từ SePay: { gateway: "SePay", transactionDate: "...", accountNo: "...", transferAmount: 100000, transferContent: "DH123456", referenceCode: "ABC" }
+        // Ta cần trích xuất mã đơn hàng từ transferContent
+        const content = payload.content || payload.transferContent || '';
+        const amount = payload.transferAmount || payload.amount || 0;
+        const transactionId = payload.referenceCode || payload.transaction_id || 'AUTO_WEBHOOK';
+
+        if (!content || amount <= 0) {
+            return res.status(400).json({ success: false, message: 'Invalid payload' });
+        }
+
+        // Tìm kiếm tất cả các Order đang pending
+        const pendingOrders = await Order.find({ status: 'pending' });
+
+        let matchedOrder = null;
+        for (let order of pendingOrders) {
+            // Kiểm tra xem content chuyển khoản có chứa mã đơn hàng không
+            // Mã đơn hàng của chúng ta thường là orderCode hoặc order._id
+            const codeToMatch = order.orderCode ? order.orderCode.toUpperCase() : order._id.toString().toUpperCase().slice(-6);
+            if (content.toUpperCase().includes(codeToMatch)) {
+                matchedOrder = order;
+                break;
+            }
+        }
+
+        if (matchedOrder) {
+            // Nếu tìm thấy và số tiền chuyển >= số tiền đơn hàng
+            if (amount >= matchedOrder.totalAmount) {
+                // Tự động xác nhận đơn hàng
+                await OrderService.verifyPayment(matchedOrder._id, transactionId, null); // verifiedBy = null (AUTO)
+                return res.json({ success: true, message: 'Order auto-verified' });
+            } else {
+                return res.json({ success: false, message: 'Amount not matched' });
+            }
+        }
+
+        res.json({ success: false, message: 'Order not found' });
     })
 };
 

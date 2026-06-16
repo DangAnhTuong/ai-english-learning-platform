@@ -150,6 +150,7 @@ const userValidation = {
             phone: Joi.string()
                 .min(10)
                 .max(15)
+                .allow('')
                 .optional(),
 
             status: Joi.string()
@@ -157,7 +158,14 @@ const userValidation = {
                 .optional(),
 
             isEmailVerified: Joi.boolean()
-                .optional()
+                .optional(),
+                
+            roles: Joi.alternatives().try(
+                Joi.string().valid('student', 'teacher', 'admin'),
+                Joi.array().items(Joi.string().valid('student', 'teacher', 'admin'))
+            ).optional(),
+
+            role: Joi.string().valid('student', 'teacher', 'admin').optional()
         })
     },
 

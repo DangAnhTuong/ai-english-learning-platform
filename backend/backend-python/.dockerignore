@@ -61,7 +61,6 @@ docs/
 # Tests
 tests/
 test_*
-*_test.py
 
 # Temporary files
 *.tmp

@@ -162,58 +162,46 @@ const UserService = {
     },
 
     /**
-     * Cập nhật user
-     * @param {string} userId - User ID
-     * @param {Object} updateData - Update data
+     * Cập nhật user đầy đủ (Sửa lỗi đồng bộ Roles và bảo mật Token)
+     * @param {string} userId - ID người dùng cần sửa
+     * @param {Object} updateData - Dữ liệu cập nhật từ Admin
      */
     async updateUser(userId, updateData) {
         try {
-            const user = await User.findById(userId);
-            if (!user) {
-                throw new AppError('Người dùng không tồn tại', 404, ErrorCodes.USER_NOT_FOUND);
+            console.log('--- ĐANG CẬP NHẬT USER:', userId, '---');
+            console.log('Dữ liệu nhận được:', JSON.stringify(updateData));
+
+            // 1. Chuẩn hóa Role (Frontend gửi 'role' hay 'roles' đều ăn hết)
+            const incomingRole = updateData.role || (updateData.roles && updateData.roles[0]);
+            if (incomingRole) {
+                updateData.roles = Array.isArray(incomingRole) ? incomingRole : [incomingRole];
+                updateData.tokenVersion = Math.floor(Date.now() / 1000); // Tăng version để reset login
+                delete updateData.role; // Xóa biến thừa
             }
 
-            // Không cho phép update email, username, phone nếu đã tồn tại
-            if (updateData.email && updateData.email !== user.email) {
-                const emailExists = await User.findOne({ email: updateData.email });
-                if (emailExists) {
-                    throw new AppError('Email đã được sử dụng', 409, ErrorCodes.EMAIL_ALREADY_EXISTS);
-                }
-            }
-
-            if (updateData.username && updateData.username !== user.username) {
-                const usernameExists = await User.findOne({ username: updateData.username });
-                if (usernameExists) {
-                    throw new AppError('Tên người dùng đã được sử dụng', 409, ErrorCodes.USERNAME_ALREADY_EXISTS);
-                }
-            }
-
-            if (updateData.phone && updateData.phone !== user.phone) {
-                const phoneExists = await User.findOne({ phone: updateData.phone });
-                if (phoneExists) {
-                    throw new AppError('Số điện thoại đã được sử dụng', 409, ErrorCodes.PHONE_ALREADY_EXISTS);
-                }
-            }
-
-            // Update password nếu có
+            // 2. Xử lý mật khẩu (nếu có)
             if (updateData.password) {
                 updateData.passwordHash = await Password.hash(updateData.password);
                 delete updateData.password;
             }
 
-            // Update fields
-            Object.keys(updateData).forEach(key => {
-                if (updateData[key] !== undefined) {
-                    user[key] = updateData[key];
-                }
-            });
+            // 3. DÙNG LỆNH "ÉP" CẬP NHẬT TRỰC TIẾP (Bỏ qua save() rắc rối)
+            const updatedUser = await User.findByIdAndUpdate(
+                userId,
+                { $set: updateData },
+                { new: true, runValidators: true } // Trả về data mới nhất và vẫn check Validation
+            ).select('-passwordHash -refreshTokens');
 
-            await user.save();
+            if (!updatedUser) {
+                throw new AppError('Người dùng không tồn tại', 404, ErrorCodes.USER_NOT_FOUND);
+            }
 
-            return this.getUserById(userId);
+            console.log('Kết quả sau khi lưu DB:', updatedUser.roles);
+            return { user: updatedUser };
+
         } catch (error) {
+            console.error('LỖI UPDATE USER:', error);
             if (error instanceof AppError) throw error;
-            console.error('Update user error:', error);
             throw new AppError('Không thể cập nhật người dùng', 500, ErrorCodes.INTERNAL_ERROR);
         }
     },

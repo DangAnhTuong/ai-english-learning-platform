@@ -68,14 +68,20 @@ const UserController = {
      * Cập nhật user
      * PUT /api/v1/admin/users/:userId
      */
+    /**
+     * Cập nhật user (Bản sửa lỗi cấp quyền)
+     * PUT /api/v1/admin/users/:userId
+     */
     updateUser: asyncHandler(async (req, res) => {
         const { userId } = req.params;
-        const user = await UserService.updateUser(userId, req.body);
+        console.log('--- UserController.updateUser ---');
+        console.log('req.body:', req.body);
+        const result = await UserService.updateUser(userId, req.body);
 
         res.json({
             success: true,
             message: 'Cập nhật người dùng thành công',
-            data: { user }
+            data: result // result lúc này đã là { user: ... }
         });
     }),
 

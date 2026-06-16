@@ -1,6 +1,7 @@
 const AuthService = require('../services/auth.service');
 const EmailService = require('../services/email.service');
 const passport = require('passport');
+const redisClient = require('../config/redis.config');
 
 const AppError = require('../utils/AppError');
 
@@ -188,28 +189,15 @@ const AuthController = {
             const crypto = require('crypto');
             const tempCode = crypto.randomBytes(32).toString('hex');
             
-            // Lưu tokens vào cache/memory với code (trong production nên dùng Redis)
-            // Tạm thời dùng in-memory store
-            if (!global.oauthTempStore) {
-                global.oauthTempStore = new Map();
-            }
-            global.oauthTempStore.set(tempCode, {
+            // Lưu tokens vào Redis
+            const tokenData = {
                 accessToken: result.accessToken,
                 refreshToken: result.refreshToken,
-                user: result.user,
-                expiresAt: Date.now() + 60000 // 1 phút
-            });
-
-            // Cleanup expired codes (chạy định kỳ)
-            setTimeout(() => {
-                if (global.oauthTempStore) {
-                    for (const [code, data] of global.oauthTempStore.entries()) {
-                        if (data.expiresAt < Date.now()) {
-                            global.oauthTempStore.delete(code);
-                        }
-                    }
-                }
-            }, 60000);
+                user: result.user
+            };
+            
+            // Lưu với expiry 60 giây (tương đương 60000ms)
+            await redisClient.setEx(`oauth_code:${tempCode}`, 60, JSON.stringify(tokenData));
 
             const frontendUrl = getFrontendUrl();
             
@@ -237,34 +225,20 @@ const AuthController = {
                 }, 400);
             }
 
-            // Lấy tokens từ temp store
-            if (!global.oauthTempStore) {
-                throw new AppError({
-                    error: 'Code expired or invalid',
-                    code: 'OAUTH_CODE_INVALID'
-                }, 400);
-            }
-
-            const tokenData = global.oauthTempStore.get(code);
+            // Lấy tokens từ Redis store
+            const tokenDataStr = await redisClient.get(`oauth_code:${code}`);
             
-            if (!tokenData) {
+            if (!tokenDataStr) {
                 throw new AppError({
                     error: 'Code expired or invalid',
                     code: 'OAUTH_CODE_INVALID'
                 }, 400);
             }
 
-            // Kiểm tra expiration
-            if (tokenData.expiresAt < Date.now()) {
-                global.oauthTempStore.delete(code);
-                throw new AppError({
-                    error: 'Code expired',
-                    code: 'OAUTH_CODE_EXPIRED'
-                }, 400);
-            }
+            const tokenData = JSON.parse(tokenDataStr);
 
             // Xóa code sau khi sử dụng (one-time use)
-            global.oauthTempStore.delete(code);
+            await redisClient.del(`oauth_code:${code}`);
 
             // Return tokens và user data
             res.json({

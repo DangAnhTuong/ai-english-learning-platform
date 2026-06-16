@@ -86,6 +86,9 @@ const userSchema = new mongoose.Schema({
     lastActiveAt: Date,
     lastLoginAt: Date,
     totalLogins: { type: Number, default: 0 },
+    currentStreak: { type: Number, default: 0 },
+    longestStreak: { type: Number, default: 0 },
+    lastStudyDate: Date,
 
     // References to other collections
     profileId: { type: mongoose.Schema.Types.ObjectId, ref: 'UserProfile' },
@@ -99,8 +102,8 @@ const userSchema = new mongoose.Schema({
 
 // Indexes for performance
 userSchema.index({ email: 1 }, { unique: true });
-userSchema.index({ username: 1 }, { unique: true });
-userSchema.index({ phone: 1 }, { unique: true });
+userSchema.index({ username: 1 }, { unique: true, sparse: true });
+userSchema.index({ phone: 1 }, { unique: true, sparse: true });
 userSchema.index({ googleId: 1 }, { unique: true, sparse: true });
 userSchema.index({ status: 1 });
 userSchema.index({ roles: 1 });

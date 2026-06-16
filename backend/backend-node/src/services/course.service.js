@@ -24,6 +24,7 @@ const CourseService = {
                 courseData.slug = `${courseData.slug}-${Date.now()}`;
             }
 
+            // GÁN ID NGƯỜI TẠO Ở ĐÂY LÀ CHUẨN RỒI NÈ
             courseData.creator = creatorId;
             courseData.instructors = [creatorId];
 
@@ -135,7 +136,7 @@ const CourseService = {
                     path: 'modules',
                     populate: {
                         path: 'lessons',
-                        select: 'title order duration type isPreview'
+                        select: 'title order duration type isPreview description'
                     }
                 });
 
@@ -231,7 +232,7 @@ const CourseService = {
             }
 
             // Check permissions
-            if (course.creator.toString() !== userId.toString()) {
+            if (course.creator && course.creator.toString() !== userId.toString()) {
                 throw new AppError('Không có quyền xóa khóa học này', 403, ErrorCodes.AUTH_INSUFFICIENT_PERMISSIONS);
             }
 

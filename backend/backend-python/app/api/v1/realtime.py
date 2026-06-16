@@ -1,14 +1,15 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException # Phải có chữ Form
 from fastapi.responses import JSONResponse
 import json
 import os
+import difflib # Thêm cái này để thuật toán tính điểm chạy được
 from typing import Dict, Any
 import asyncio
 from app.services.realtime_service import realtime_service
 
 router = APIRouter()
 
-@router.post("/whisper")
+@router.post("/whisper")    
 async def whisper_transcribe(audio: UploadFile = File(...)):
     """Transcribe audio file using OpenAI Whisper with multilingual support"""
     try:
@@ -111,10 +112,36 @@ async def pronunciation_feedback(request: Dict[str, Any]):
         raise HTTPException(status_code=500, detail=f"Feedback failed: {str(e)}")
 
 @router.post("/pronunciation")
-async def pronunciation_feedback_alias(request: Dict[str, Any]):
-    """Get pronunciation feedback using Realtime API (alias for /feedback)"""
-    return await pronunciation_feedback(request)
+async def pronunciation_feedback_real(
+    audio: UploadFile = File(...), 
+    text: str = Form(...) # Dòng này mà thiếu Form ở import là sập server ngay
+):
+    try:
+        audio_content = await audio.read()
+        # Dùng Whisper dịch giọng nói
+        stt_result = await realtime_service.process_audio_transcription(audio_content, audio.content_type)
+        user_transcript = stt_result.get("transcript", "")
 
+        if not user_transcript:
+            return {"score": 0, "feedback": "AI không nghe thấy gì cả!"}
+
+        # Nhận xét từ GPT
+        feedback_text = await realtime_service.get_pronunciation_feedback(text, user_transcript)
+
+        # Tính điểm thật bằng difflib
+        matcher = difflib.SequenceMatcher(None, text.lower(), user_transcript.lower())
+        score = int(matcher.ratio() * 100)
+
+        return {
+            "score": score,
+            "transcript": user_transcript,
+            "feedback": feedback_text
+        }
+    except Exception as e:
+        print(f"Lỗi: {str(e)}")
+        return JSONResponse(status_code=500, content={"error": str(e)})
+    
+    
 @router.post("/initialize")
 async def initialize_realtime():
     """Initialize Realtime service"""

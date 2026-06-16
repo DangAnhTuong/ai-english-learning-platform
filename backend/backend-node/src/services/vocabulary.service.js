@@ -253,7 +253,7 @@ class VocabularyService {
             const vocabularies = await Vocabulary.find(query)
                 .limit(limit)
                 .sort({ usageCount: -1, createdAt: -1 })
-                .select('word displayWord type meaning level')
+                .select('word displayWord type meaning level wordFamily synonyms antonyms examples')
                 .lean();
 
             return vocabularies;

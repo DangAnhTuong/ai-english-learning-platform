@@ -75,10 +75,12 @@ const AuthService = {
 
             // Gửi email xác thực
             try {
-                await EmailService.sendEmailVerification(email, emailVerificationToken);
+                // Bỏ await để API phản hồi ngay lập tức, không bắt frontend phải chờ gửi mail
+                EmailService.sendEmailVerification(email, emailVerificationToken).catch(err => {
+                    console.error('Failed to send verification email asynchronously:', err);
+                });
             } catch (emailError) {
                 console.error('Failed to send verification email:', emailError);
-                // Không throw error để không làm gián đoạn quá trình đăng ký
             }
 
             return await issueTokens(user);

@@ -1,0 +1,138 @@
+A:\frontend\web_learn_english_main\English-App-Clean\backend\backend-node
+├── AUTH_FEATURES_DOCUMENTATION.txt
+├── docker-compose.dev.yml
+├── docker-compose.yml
+├── Dockerfile
+├── logs
+|  ├── 20260331-1604-01-access.log.gz
+|  ├── 20260401-1249-01-access.log.gz
+|  ├── access.log
+|  ├── access.log.txt
+|  ├── api-access.log
+|  ├── combined.log
+|  ├── error.log
+|  ├── exceptions.log
+|  ├── rejections.log
+|  └── security.log
+├── nginx-server-config.conf
+├── nginx.conf
+├── package-lock.json
+├── package.json
+├── public
+|  └── uploads
+|     └── avatars
+├── scripts
+|  ├── check-env-config.js
+|  ├── check-user.js
+|  ├── create-admin.js
+|  ├── create-test-users.js
+|  ├── debug-order-creation.js
+|  ├── reset-rate-limit.js
+|  ├── seed-demo-courses.js
+|  ├── test-complete-system.js
+|  ├── test-full-flow.js
+|  ├── test-hardening-sync.js
+|  ├── test-login-direct.js
+|  ├── test-login.js
+|  ├── test-order-direct.js
+|  ├── test-order-system.js
+|  ├── test-password.js
+|  ├── test-payment-system-complete.js
+|  ├── test-validation-detailed.js
+|  └── test-validation.js
+├── src
+|  ├── app.js
+|  ├── config
+|  |  ├── conversation.config.js
+|  |  ├── database.config.js
+|  |  └── passport.js
+|  ├── constants
+|  |  ├── errorCodes.js
+|  |  └── permissions.js
+|  ├── controllers
+|  |  ├── admin.controller.js
+|  |  ├── auth.controller.js
+|  |  ├── conversation.controller.js
+|  |  ├── course.controller.js
+|  |  ├── level.controller.js
+|  |  ├── order.controller.js
+|  |  ├── profile.controller.js
+|  |  ├── subscription.controller.js
+|  |  ├── user.controller.js
+|  |  └── vocabulary.controller.js
+|  ├── middlewares
+|  |  ├── apiLogger.js
+|  |  ├── auth.guard.js
+|  |  ├── errorHandler.js
+|  |  ├── rateLimiter.js
+|  |  ├── role.guard.js
+|  |  └── validate.js
+|  ├── models
+|  |  ├── achievement.js
+|  |  ├── conversation.js
+|  |  ├── conversationTopic.js
+|  |  ├── course.js
+|  |  ├── deviceSession.js
+|  |  ├── enrollment.js
+|  |  ├── learningProfile.js
+|  |  ├── lesson.js
+|  |  ├── level.js
+|  |  ├── module.js
+|  |  ├── notificationSettings.js
+|  |  ├── order.js
+|  |  ├── progress.js
+|  |  ├── studySession.js
+|  |  ├── subscription.js
+|  |  ├── subscriptionPlan.js
+|  |  ├── userProfile.js
+|  |  ├── userProgress.js
+|  |  ├── userSchema.js
+|  |  └── vocabulary.js
+|  ├── routes
+|  |  ├── admin.routes.js
+|  |  ├── auth.routes.js
+|  |  ├── conversation.routes.js
+|  |  ├── course.routes.js
+|  |  ├── index.js
+|  |  ├── level.routes.js
+|  |  ├── order.routes.js
+|  |  ├── profile.routes.js
+|  |  ├── subscription.routes.js
+|  |  ├── user.routes.js
+|  |  └── vocabulary.routes.js
+|  ├── seed.js
+|  ├── server.js
+|  ├── services
+|  |  ├── admin.service.js
+|  |  ├── audioQueue.service.js
+|  |  ├── auth.service.js
+|  |  ├── conversation.service.js
+|  |  ├── conversationAudio.service.js
+|  |  ├── course.service.js
+|  |  ├── email.service.js
+|  |  ├── level.service.js
+|  |  ├── order.service.js
+|  |  ├── profile.service.js
+|  |  ├── security.logger.js
+|  |  ├── subscription.service.js
+|  |  ├── user.service.js
+|  |  └── vocabulary.service.js
+|  ├── utils
+|  |  ├── AppError.js
+|  |  ├── asyncHandler.js
+|  |  ├── jwt.js
+|  |  ├── logger.js
+|  |  └── password.js
+|  └── validations
+|     ├── auth.validation.js
+|     ├── conversation.validation.js
+|     ├── course.validation.js
+|     ├── order.validation.js
+|     ├── subscription.validation.js
+|     ├── user.validation.js
+|     └── vocabulary.validation.js
+└── TEST_MANUAL_CHECKLIST.txt
+
+directory: 1199 file: 5351
+
+ignored: directory (40)

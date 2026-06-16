@@ -9,6 +9,8 @@ const vocabularyRoutes = require('./vocabulary.routes');
 const levelRoutes = require('./level.routes');
 const adminRoutes = require('./admin.routes');
 const profileRoutes = require('./profile.routes');
+const progressRoutes = require('./progress.routes');
+const flashcardRoutes = require('./flashcard.routes');
 
 const router = Router();
 
@@ -20,6 +22,8 @@ router.use('/profile', profileRoutes);
 
 // Learning platform routes
 router.use('/courses', courseRoutes);
+router.use('/progress', progressRoutes);
+router.use('/flashcards', flashcardRoutes);
 
 // Conversation management routes
 router.use('/conversations', conversationRoutes);

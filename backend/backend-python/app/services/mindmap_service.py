@@ -1,77 +1,47 @@
-from fastapi import HTTPException
 import os
-import openai
-from app.models.mindmap import MindmapNode, MindmapEdge, MindmapResponse
-from typing import List, Optional
+from openai import OpenAI
+from typing import Dict, Any
 
-# Tự động load .env nếu tồn tại
-try:
-    from dotenv import load_dotenv
-    load_dotenv()
-except ImportError:
-    pass
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-openai.api_key = os.getenv("openai_api_key")
+def generate_mindmap(topic: str) -> Dict[str, Any]:
+    prompt = f"""
+    Hãy tạo một sơ đồ tư duy (mindmap) chuyên sâu cho từ hoặc chủ đề: "{topic}".
+    Yêu cầu trả về JSON định dạng cây (tree structure).
+    Bao gồm các nhánh chính (mỗi nhánh phải có nhãn tiếng Anh kèm dịch tiếng Việt):
+    1. "Meaning & IPA (Nghĩa & Phiên âm)"
+    2. "Word Family (Gia đình từ)"
+    3. "Synonyms (Từ đồng nghĩa)"
+    4. "Antonyms (Từ trái nghĩa)"
+    5. "Common Phrases (Cụm từ thông dụng)"
 
-SYSTEM_PROMPT = (
-    "You are a mindmap generator for an English learning app.\n"
-    "Given a topic (in any language), always return a nested JSON mindmap (max 5 levels deep).\n"
-    "Each node must have: id (unique string), label (English word/phrase), definition (short, simple English), example_sentence (English), children (array of child nodes, or empty array if leaf).\n"
-    "The root node is the translated topic. Each child is a subtopic or related word. Output only valid JSON, no explanation, no markdown."
-)
+    LƯU Ý: 
+    - Tất cả các từ vựng con PHẢI có dịch nghĩa tiếng Việt đi kèm ngay sau dấu gạch ngang.
+    - Ví dụ: "Success - Sự thành công".
+    - Trả về JSON chuẩn 100%.
 
-USER_PROMPT = lambda topic: f"User topic: {topic}\nGenerate the mindmap as described."
+    Định dạng mẫu:
+    {{
+      "label": "{topic}",
+      "definition": "Phiên âm và nghĩa tổng quát",
+      "children": [
+        {{
+          "label": "Synonyms (Từ đồng nghĩa)",
+          "children": [
+            {{"label": "Gorgeous - Tuyệt đẹp"}},
+            {{"label": "Stunning - Lộng lẫy"}}
+          ]
+        }}
+      ]
+    }}
+    """
 
-FALLBACK_MINDMAP = {
-    "id": "0",
-    "label": "Sample Mindmap",
-    "definition": "This is a fallback mindmap when AI cannot generate content.",
-    "example_sentence": "This is an example sentence for the fallback mindmap.",
-    "children": [
-        {
-            "id": "1",
-            "label": "Fallback Node 1",
-            "definition": "A sample child node.",
-            "example_sentence": "This is a child node.",
-            "children": []
-        },
-        {
-            "id": "2",
-            "label": "Fallback Node 2",
-            "definition": "Another sample child node.",
-            "example_sentence": "This is another child node.",
-            "children": []
-        }
-    ]
-}
-
-def generate_mindmap(topic: str) -> dict:
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "system", "content": "Bạn là chuyên gia ngôn ngữ học và gia sư tiếng Anh."},
+                  {"role": "user", "content": prompt}],
+        response_format={ "type": "json_object" }
+    )
+    
     import json
-    try:
-        response = openai.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": USER_PROMPT(topic)}
-            ],
-            temperature=0.7,
-            max_tokens=1800
-        )
-        content = response.choices[0].message.content
-        try:
-            data = json.loads(content)
-        except Exception:
-            import re
-            match = re.search(r'\{.*\}', content, re.DOTALL)
-            if match:
-                data = json.loads(match.group(0))
-            else:
-                # Nếu không parse được JSON, trả về fallback
-                return FALLBACK_MINDMAP
-        return data
-    except openai.OpenAIError as e:
-        # Nếu lỗi policy hoặc lỗi OpenAI, trả về fallback
-        return FALLBACK_MINDMAP
-    except Exception as e:
-        # Nếu lỗi khác, trả về fallback
-        return FALLBACK_MINDMAP 
+    return json.loads(response.choices[0].message.content)

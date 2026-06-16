@@ -123,10 +123,7 @@ const retryConnection = () => {
     }, delay);
 };
 
-// Execute connection
-connectDB();
-
-// Export helper function to check MongoDB connection status
+// Export functions
 const getMongoDBStatus = () => {
     const states = {
         0: 'disconnected',
@@ -144,5 +141,8 @@ const getMongoDBStatus = () => {
     };
 };
 
-module.exports = mongoose;
-module.exports.getMongoDBStatus = getMongoDBStatus;
+module.exports = {
+    connectDB,
+    getMongoDBStatus,
+    mongoose
+};

@@ -9,7 +9,11 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 const CourseController = {
     createCourse: asyncHandler(async (req, res) => {
-        const course = await CourseService.createCourse(req.body, req.user.id);
+        // Lấy đúng ID (chữa lỗi mồ côi)
+        const userId = req.user._id || req.user.id;
+        
+        // Gọi Service và truyền userId vào
+        const course = await CourseService.createCourse(req.body, userId);
 
         res.status(201).json({
             success: true,
@@ -68,7 +72,10 @@ const CourseController = {
 
     deleteCourse: asyncHandler(async (req, res) => {
         const { courseId } = req.params;
-        const result = await CourseService.deleteCourse(courseId, req.user.id);
+        // Lấy đúng ID để đối chiếu quyền sở hữu
+        const userId = req.user._id || req.user.id; 
+        
+        const result = await CourseService.deleteCourse(courseId, userId);
 
         res.json({
             success: true,
@@ -134,10 +141,19 @@ const CourseController = {
     }),
 
     // Get courses created by current user
+    // Get courses created by current user
+    // Get courses created by current user
     getMyCourses: asyncHandler(async (req, res) => {
+        // 1. Lấy ID người dùng (Bọc lót trường hợp dùng _id thay vì id)
+        const userId = req.user.id || req.user._id;
+
         const filters = {
             ...req.query,
-            creatorId: req.user.id
+            // 2. Bọc lót cả 2 tên biến phổ biến để Service chắc chắn bắt được
+            creatorId: userId,
+            creator: userId, 
+            // 3. Ép lấy tất cả trạng thái khóa học (Bao gồm cả Bản nháp)
+            status: req.query.status || { $in: ['draft', 'published', 'archived', 'under_review'] }
         };
 
         const pagination = {
@@ -147,7 +163,7 @@ const CourseController = {
             sortOrder: req.query.sortOrder || 'desc'
         };
 
-        const result = await CourseService.getCourses(filters, pagination, req.user.id);
+        const result = await CourseService.getCourses(filters, pagination, userId);
 
         res.json({
             success: true,

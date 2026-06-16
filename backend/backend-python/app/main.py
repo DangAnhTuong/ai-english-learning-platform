@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import time
 from collections import defaultdict
 
-# Load .env từ thư mục hiện tại hoặc parent
+# Load .env từ thư mục hiện tại hoặc parent TRƯỚC KHI import các module nội bộ
 env_paths = [
     Path(__file__).parent.parent / '.env',  # backend-python/.env
     Path(__file__).parent / '.env',         # app/.env
@@ -16,6 +16,8 @@ for env_path in env_paths:
     if env_path.exists():
         load_dotenv(env_path)
         break
+
+from app.api.v1 import ai_test
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -348,8 +350,8 @@ app.include_router(realtime.router, prefix="/api/v1/realtime", tags=["realtime"]
 app.include_router(tts.router, prefix="/api/v1/tts", tags=["tts"])
 app.include_router(conversation.router, prefix="/api/v1", tags=["conversation"])
 app.include_router(conversation_websocket.router, prefix="", tags=["websocket"])
+app.include_router(ai_test.router, prefix="/api/v1/ai-test", tags=["AI Test"])
 
-# Voice chat WebSocket endpoint (at root level)
 @app.websocket("/ws/voice-chat")
 async def voice_chat_websocket(websocket: WebSocket):
     await voice_chat.voice_chat_websocket(websocket)

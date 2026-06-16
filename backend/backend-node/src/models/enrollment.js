@@ -303,7 +303,7 @@ enrollmentSchema.methods.addBookmark = function (lessonId, timestamp = null, not
     return this.save();
 };
 
-enrollmentSchema.methods.rateC9ourse = function (rating, review = '') {
+enrollmentSchema.methods.rateCourse = function (rating, review = '') {
     this.courseRating = {
         rating,
         review,

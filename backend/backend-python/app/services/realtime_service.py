@@ -190,17 +190,24 @@ class RealtimeService:
             if not self.is_initialized:
                 await self.initialize()
             
-            # Tối ưu prompt cho pronunciation feedback
-            feedback_prompt = f"""Pronunciation feedback: Expected "{expected_text}", heard "{user_transcript}". Be brief and encouraging."""
+            # SỬA PROMPT TẠI ĐÂY
+            system_instruction = "Bạn là giáo viên dạy phát âm tiếng Anh bản ngữ. Hãy đưa ra nhận xét NGẮN GỌN và KHÍCH LỆ bằng TIẾNG VIỆT."
+            
+            feedback_prompt = f"""
+            So sánh câu mẫu: "{expected_text}" 
+            Và câu người học nói: "{user_transcript}"
+            
+            Hãy chỉ ra từ nào phát âm chưa chuẩn (nếu có) và đưa ra lời khuyên ngắn gọn bằng tiếng Việt (không quá 30 từ).
+            """
 
             response = self.client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "English pronunciation tutor. Be brief and encouraging."},
+                    {"role": "system", "content": system_instruction},
                     {"role": "user", "content": feedback_prompt}
                 ],
-                max_tokens=80,  # Giảm token usage cho feedback nhanh
-                temperature=0.5  # Giảm temperature cho phản hồi nhất quán hơn
+                max_tokens=150, # Tăng nhẹ token để chứa tiếng Việt có dấu
+                temperature=0.5 
             )
             
             return response.choices[0].message.content

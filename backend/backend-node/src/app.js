@@ -156,8 +156,19 @@ app.get('/health', (_req, res) => {
     });
 });
 
+const rateLimit = require('express-rate-limit');
+
+// Rate limiting cho toàn bộ API
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 1000, // Giới hạn 1000 request / 15 phút / IP
+    standardHeaders: true, 
+    legacyHeaders: false, 
+    message: { success: false, message: 'Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại sau 15 phút.' }
+});
+
 // Routes
-app.use(process.env.API_PREFIX || '/api/v1', routes); // Fallback to /api if API_PREFIX is not set
+app.use(process.env.API_PREFIX || '/api/v1', apiLimiter, routes); // Fallback to /api if API_PREFIX is not set
 
 // 404 + Error handler
 app.use(notFound);

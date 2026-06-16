@@ -18,23 +18,41 @@ if (result.error && result.error.code !== 'ENOENT') {
 }
 const http = require('http');
 const app = require('./app');
-require('./config/database.config');
+const { connectDB } = require('./config/database.config');
+const Logger = require('./utils/logger');
+const { expireSubscriptionsJob } = require('./services/cronService');
 
 const PORT = process.env.PORT || 3001;
 
-(async () => {
-    const server = http.createServer(app);
-    server.setTimeout(30_000); // 30s
+// Khởi động server
+const startServer = async () => {
+    try {
+        // Kết nối MongoDB trước
+        await connectDB();
+        
+        // Khởi động các Cron Jobs
+        expireSubscriptionsJob.start();
+        Logger.info('✅ Đã khởi động CronJob kiểm tra gói cước (chạy lúc 00:00 hằng ngày)');
 
-    server.listen(PORT, () => {
-        console.log(`API listening on :${PORT}`);
-    });
+        // Sau khi DB đã kết nối thành công mới start server
+        const server = http.createServer(app);
+        server.setTimeout(30_000); // 30s
 
-    const shutdown = () => {
-        console.log('Shutting down gracefully...');
-        server.close(() => process.exit(0));
-        setTimeout(() => process.exit(1), 10_000).unref();
-    };
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
-})();
+        server.listen(PORT, () => {
+            console.log(`API listening on :${PORT}`);
+        });
+
+        const shutdown = () => {
+            console.log('Shutting down gracefully...');
+            server.close(() => process.exit(0));
+            setTimeout(() => process.exit(1), 10_000).unref();
+        };
+        process.on('SIGTERM', shutdown);
+        process.on('SIGINT', shutdown);
+    } catch (error) {
+        Logger.error('❌ Lỗi khởi động server:', error);
+        process.exit(1);
+    }
+};
+
+startServer();

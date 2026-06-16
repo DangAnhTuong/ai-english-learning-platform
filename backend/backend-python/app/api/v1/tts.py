@@ -30,12 +30,50 @@ async def generate_speech(request: TTSRequest):
     try:
         logger.info(f"Generating speech for text: {request.text[:50]}...")
         
-        # Tạo instructions cho tiếng Việt nếu cần
+        # Try Deepgram TTS first for ultra-fast generation
+        try:
+            from app.services.deepgram_service import DeepgramService
+            deepgram_svc = DeepgramService()
+            
+            # Map OpenAI voices to Deepgram voices
+            voice_model = "aura-asteria-en"
+            if request.voice in ["echo", "onyx", "fable"]:
+                voice_model = "aura-orion-en" # Male
+            elif request.voice in ["shimmer", "nova", "alloy"]:
+                voice_model = "aura-stella-en" # Female
+                
+            audio_path = await deepgram_svc.text_to_speech(
+                text=request.text, 
+                voice_settings={"model": voice_model}
+            )
+            
+            if audio_path and audio_path != "mock-tts-audio":
+                with open(audio_path, "rb") as f:
+                    audio_data = f.read()
+                
+                try:
+                    os.remove(audio_path)
+                except:
+                    pass
+                    
+                logger.info(f"Successfully generated Deepgram speech, size: {len(audio_data)} bytes")
+                
+                return Response(
+                    content=audio_data,
+                    media_type="audio/wav",
+                    headers={
+                        "Content-Length": str(len(audio_data)),
+                        "Content-Disposition": "attachment; filename=speech.wav"
+                    }
+                )
+        except Exception as e:
+            logger.warning(f"Deepgram TTS failed, falling back to OpenAI: {str(e)}")
+            
+        # Fallback to OpenAI TTS API
         instructions = None
         if request.language == "vi" or any(char in request.text for char in "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"):
             instructions = "Speak in Vietnamese with proper pronunciation and tone marks."
         
-        # Gọi OpenAI TTS API
         response = client.audio.speech.create(
             model=request.model,
             voice=request.voice,
@@ -44,10 +82,9 @@ async def generate_speech(request: TTSRequest):
             instructions=instructions
         )
         
-        # Trả về audio data trực tiếp
         audio_data = response.content
         
-        logger.info(f"Successfully generated speech, size: {len(audio_data)} bytes")
+        logger.info(f"Successfully generated OpenAI speech, size: {len(audio_data)} bytes")
         
         return Response(
             content=audio_data,

@@ -7,7 +7,10 @@ const { Permissions } = require('../constants/permissions');
 
 const router = Router();
 
-// Tất cả routes đều cần authentication
+// Webhook nhận thông báo thanh toán từ SePay/Casso (Public Route)
+router.post('/webhook/sepay', OrderController.sepayWebhook);
+
+// Tất cả routes bên dưới đều cần authentication
 router.use(AuthGuard.guard);
 
 // Tạo đơn hàng (Student, Teacher, Admin)
