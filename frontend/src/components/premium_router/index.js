@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
 import { useSelector } from "react-redux";
+import TrialTimer from "../TrialTimer";
 
 function PremiumRoute() {
     const isLogin = useSelector((state) => state.auth.isLogin);
@@ -13,17 +14,25 @@ function PremiumRoute() {
     if (isStaff) return <Outlet />;
 
     // 3. Học viên -> Kiểm tra xem đã mua khóa học chưa
-    // (Dựa vào file Schema lúc nãy, bạn có trường activeSubscriptionId)
-    // Nếu bạn dùng trường khác (ví dụ: isPremium), hãy sửa lại chữ activeSubscriptionId ở dưới
     const hasPurchased = !!user?.activeSubscriptionId;
+    if (hasPurchased) return <Outlet />;
 
-    if (!hasPurchased) {
-        // Chưa mua khóa học -> Đá thẳng ra trang thanh toán (hoặc trang danh sách khóa học)
-        return <Navigate to="/payment" replace />;
+    // 4. Kiểm tra xem đang trong thời gian dùng thử không
+    const trialEndTime = localStorage.getItem('trialEndTime');
+    const isTrialActive = trialEndTime && Date.now() < parseInt(trialEndTime, 10);
+
+    if (isTrialActive) {
+        // Có vé dùng thử -> Cho vào, đồng thời hiện đồng hồ
+        return (
+            <>
+                <TrialTimer />
+                <Outlet />
+            </>
+        );
     }
 
-    // 4. Đã mua khóa học -> Mời vào xài AI
-    return <Outlet />;
+    // Không có mua khóa học & không có vé dùng thử -> Đá ra ngoài
+    return <Navigate to="/payment" replace />;
 }
 
 export default PremiumRoute;

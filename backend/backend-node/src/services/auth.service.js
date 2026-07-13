@@ -70,7 +70,9 @@ const AuthService = {
                 username,
                 phone,
                 emailVerificationToken,
-                emailVerificationExpires
+                emailVerificationExpires,
+                // [PORTFOLIO DEMO] Tự động cấp quyền truy cập tính năng Premium (AI Chat) cho mọi user đăng ký mới
+                activeSubscriptionId: new (require('mongoose').Types.ObjectId)()
             });
 
             // Gửi email xác thực
@@ -466,7 +468,9 @@ const AuthService = {
                 status: 'active',
                 authProvider: 'google',
                 lastLoginAt: new Date(),
-                totalLogins: 1
+                totalLogins: 1,
+                // [PORTFOLIO DEMO] Tự động cấp quyền truy cập tính năng Premium (AI Chat) cho mọi user đăng ký mới
+                activeSubscriptionId: new (require('mongoose').Types.ObjectId)()
             });
 
             SecurityLogger.logLoginAttempt({

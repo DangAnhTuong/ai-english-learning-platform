@@ -1,4 +1,4 @@
-import { Row, Col, Button, Card, Spin, Rate, Tag, Empty, Alert } from 'antd';
+import { Row, Col, Button, Card, Spin, Rate, Tag, Empty, Alert, Modal, message } from 'antd';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { Link } from 'react-router-dom';
 import React, { useState, useEffect, useMemo } from 'react'
@@ -12,6 +12,7 @@ import { courseService } from '../../services/courseService';
 import { conversationService } from '../../services/conversationService';
 import { subscriptionService } from '../../services/subscriptionService';
 import { Helmet } from 'react-helmet-async';
+import { useSelector } from 'react-redux';
 import s1 from "../../img/nentienganhmain.jpg";
 import "./style.css"; 
 
@@ -37,11 +38,50 @@ function Home() {
     const [topics, setTopics] = useState([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
+    const isLogin = useSelector((state) => state.auth.isLogin);
+    const user = useSelector((state) => state.auth.user);
+
     useEffect(() => {
         loadFeaturedCourses();
         loadPlans();
         loadTopics();
     }, []);
+
+    const handleTrialClick = () => {
+        if (!isLogin) {
+            Modal.confirm({
+                title: 'Yêu cầu đăng nhập',
+                content: 'Bạn cần đăng nhập bằng tài khoản học viên để bắt đầu sử dụng bản dùng thử 5 phút. Bạn có muốn Đăng nhập ngay không?',
+                okText: 'Đăng nhập',
+                cancelText: 'Hủy',
+                onOk: () => navigate('/login')
+            });
+            return;
+        }
+
+        const isStaff = user?.roles?.some(role => ['admin', 'teacher'].includes(role));
+        const hasPurchased = !!user?.activeSubscriptionId;
+
+        if (isStaff || hasPurchased) {
+            // Đã là Premium hoặc Staff thì vào thẳng
+            navigate('/conversation');
+            return;
+        }
+
+        // Kích hoạt Trial 5 phút
+        Modal.confirm({
+            title: 'Bắt đầu dùng thử AI',
+            content: 'Bạn sẽ được trải nghiệm miễn phí toàn bộ các tính năng AI (Luyện Hội Thoại, Chat Box, Mindmap) trong vòng 5 phút. Bạn đã sẵn sàng chưa?',
+            okText: 'Bắt đầu ngay',
+            cancelText: 'Để sau',
+            onOk: () => {
+                const trialEndTime = Date.now() + 5 * 60 * 1000; // 5 phút
+                localStorage.setItem('trialEndTime', trialEndTime);
+                message.success('Đã kích hoạt 5 phút dùng thử!');
+                navigate('/conversation');
+            }
+        });
+    };
 
     // Lấy khóa học nổi bật từ API
     const loadFeaturedCourses = async () => {
@@ -168,11 +208,9 @@ function Home() {
                         </span>
                     </div>
 
-                    <Link to="/conversation">
-                        <Button type="primary" size="large" className="btn-orange">
-                            Học thử miễn phí <RightOutlined />
-                        </Button>
-                    </Link>
+                    <Button type="primary" size="large" className="btn-orange" onClick={handleTrialClick}>
+                        Học thử miễn phí <RightOutlined />
+                    </Button>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
     <div style={{ display: 'flex' }}>
         <img src="https://i.pravatar.cc/100?img=1" alt="user" style={{ width: 35, height: 35, borderRadius: '50%', border: '2px solid white' }} />

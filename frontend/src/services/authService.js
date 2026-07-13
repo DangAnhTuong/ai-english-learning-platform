@@ -148,6 +148,14 @@ export const authService = {
     const response = await api.post('/auth/oauth/exchange', { code });
     return response.data;
   },
+
+  /**
+   * Verify Google ID token and login
+   */
+  async loginWithGoogle(token) {
+    const response = await api.post('/auth/google/verify', { token });
+    return response.data;
+  },
 };
 
 export default authService;

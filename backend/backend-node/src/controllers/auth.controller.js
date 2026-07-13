@@ -256,6 +256,64 @@ const AuthController = {
                 code: 'OAUTH_EXCHANGE_FAILED'
             }, 500);
         }
+    }),
+
+    verifyGoogleToken: asyncHandler(async (req, res) => {
+        const { token } = req.body;
+        if (!token) {
+            throw new AppError('Token is required', 400, 'TOKEN_REQUIRED');
+        }
+
+        try {
+            let profile;
+            const { OAuth2Client } = require('google-auth-library');
+            const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || '151027052858-mmdiucsj3s8ddkmfk0rieanmhojts1np.apps.googleusercontent.com');
+
+            // Try to verify as ID Token first
+            try {
+                const ticket = await googleClient.verifyIdToken({
+                    idToken: token,
+                    audience: [
+                        '151027052858-mmdiucsj3s8ddkmfk0rieanmhojts1np.apps.googleusercontent.com', 
+                        process.env.GOOGLE_CLIENT_ID
+                    ].filter(Boolean)
+                });
+                const payload = ticket.getPayload();
+                profile = {
+                    id: payload.sub,
+                    emails: [{ value: payload.email }],
+                    displayName: payload.name,
+                    photos: [{ value: payload.picture }]
+                };
+            } catch (err) {
+                // If ID Token verification fails, it might be an Access Token
+                const axios = require('axios');
+                const response = await axios.get('https://www.googleapis.com/oauth2/v3/userinfo', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const payload = response.data;
+                profile = {
+                    id: payload.sub,
+                    emails: [{ value: payload.email }],
+                    displayName: payload.name,
+                    photos: [{ value: payload.picture }]
+                };
+            }
+
+            if (!profile || !profile.emails || !profile.emails[0].value) {
+                throw new AppError('Failed to get user profile from Google', 400, 'GOOGLE_AUTH_ERROR');
+            }
+
+            // Process Google authentication and get tokens
+            const result = await AuthService.googleAuth(profile);
+
+            // Return tokens and user data directly to React
+            res.json(result);
+        } catch (error) {
+            console.error('Google verification error:', error);
+            if (error instanceof AppError) throw error;
+            throw new AppError('Google authentication failed', 401, 'GOOGLE_AUTH_FAILED');
+        }
     })
 };
 

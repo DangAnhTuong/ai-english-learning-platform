@@ -105,6 +105,9 @@ r.get('/google/error', (req, res) => {
     });
 });
 
+// React Google OAuth new flow
+r.post('/google/verify', AuthController.verifyGoogleToken);
+
 // Exchange OAuth code for tokens (secure)
 r.post('/oauth/exchange', AuthController.exchangeOAuthCode);
 

@@ -6,83 +6,89 @@ import { useDispatch } from 'react-redux';
 import { loginSuccess, loginFailure, loginStart } from '../../redux/authSlice';
 import { authService } from '../../services/authService';
 import ForgotPasswordModal from '../Forgot_Password_Modal';
+import { useGoogleLogin } from '@react-oauth/google';
 import './style.css';
-import loginImg from '../../img/brainn.jpg'; // Ảnh trang trí cho trang login
-import defaultUserAvatar from '../../img/avatar.jpg'; // Ảnh đại diện mặc định cho user
+import loginImg from '../../img/brainn.jpg';
+import defaultUserAvatar from '../../img/avatar.jpg';
 
 function Login() {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const [form] = Form.useForm();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
   const [logoutReason, setLogoutReason] = useState(null);
 
-  // Kiểm tra xem có lý do bị logout không (ví dụ: tài khoản bị khóa)
   useEffect(() => {
     const reason = localStorage.getItem('logoutReason');
     if (reason) {
       setLogoutReason(reason);
-      localStorage.removeItem('logoutReason'); // Xóa sau khi hiển thị
+      localStorage.removeItem('logoutReason');
     }
   }, []);
 
-  // --- ĐĂNG NHẬP BẰNG GOOGLE ---
-  const handleGoogleLogin = () => {
-    setSocialLoading(true);
-    // Redirect đến Google OAuth endpoint
-    const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
-    window.location.href = `${apiBaseUrl}/auth/google`;
+  const handleLoginSuccess = (response) => {
+    const data = response;
+    if (data.user && data.accessToken && data.refreshToken) {
+      const { user, accessToken, refreshToken } = data;
+      const userData = {
+        id: user._id || user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar || defaultUserAvatar,
+        roles: user.roles || ['student'],
+        status: user.status,
+      };
+
+      dispatch(loginSuccess({
+        user: userData,
+        accessToken,
+        refreshToken,
+      }));
+
+      message.success('Đăng nhập thành công!');
+
+      if (!user.isEmailVerified) {
+        message.warning('Vui lòng xác thực email để sử dụng đầy đủ tính năng!');
+      }
+
+      if (userData.roles && userData.roles.includes('admin')) {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
+    } else {
+      throw new Error(response.error || data.error || 'Đăng nhập thất bại');
+    }
   };
 
-  // --- ĐĂNG NHẬP THƯỜNG ---
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setSocialLoading(true);
+      try {
+        const response = await authService.loginWithGoogle(tokenResponse.access_token);
+        handleLoginSuccess(response);
+      } catch (error) {
+        console.error('Google login error:', error);
+        message.error('Đăng nhập Google thất bại từ máy chủ.');
+      } finally {
+        setSocialLoading(false);
+      }
+    },
+    onError: () => {
+      message.error('Đăng nhập Google thất bại');
+    }
+  });
+
   const onFinish = async (values) => {
     setLoading(true);
     dispatch(loginStart());
 
     try {
       const response = await authService.login(values.email, values.password);
-
-      // Backend trả về trực tiếp { user, accessToken, refreshToken }
-      const data = response;
-
-      if (data.user && data.accessToken && data.refreshToken) {
-        const { user, accessToken, refreshToken } = data;
-
-        // Format user data để lưu vào Redux
-        const userData = {
-          id: user._id || user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          avatar: user.avatar || defaultUserAvatar,
-          roles: user.roles || ['student'],
-          status: user.status,
-        };
-
-        // Dispatch success với tokens
-        dispatch(loginSuccess({
-          user: userData,
-          accessToken,
-          refreshToken,
-        }));
-
-        message.success('Đăng nhập thành công!');
-
-        // Kiểm tra nếu email chưa verify
-        if (!user.isEmailVerified) {
-          message.warning('Vui lòng xác thực email để sử dụng đầy đủ tính năng!');
-        }
-
-        // Redirect dựa trên role
-        if (userData.roles && userData.roles.includes('admin')) {
-          navigate('/admin/dashboard');
-        } else {
-          navigate('/');
-        }
-      } else {
-        throw new Error(response.error || data.error || 'Đăng nhập thất bại');
-      }
+      handleLoginSuccess(response);
     } catch (error) {
       console.error('Login error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
@@ -124,6 +130,7 @@ function Login() {
           )}
 
           <Form
+            form={form}
             layout="vertical"
             initialValues={{ remember: true }}
             onFinish={onFinish}
@@ -162,6 +169,29 @@ function Login() {
               Đăng nhập
             </Button>
           </Form>
+
+          <Divider style={{ color: '#999', fontSize: 13 }}>Dành cho Nhà tuyển dụng (Demo)</Divider>
+          
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            <Button 
+              block 
+              onClick={() => {
+                form.setFieldsValue({ email: 'admin@example.com', password: 'admin123456' });
+                onFinish({ email: 'admin@example.com', password: 'admin123456' });
+              }}
+            >
+              Quyền Admin
+            </Button>
+            <Button 
+              block 
+              onClick={() => {
+                form.setFieldsValue({ email: 'student@example.com', password: 'student123456' });
+                onFinish({ email: 'student@example.com', password: 'student123456' });
+              }}
+            >
+              Quyền Học viên
+            </Button>
+          </div>
 
           <Divider style={{ color: '#999', fontSize: 13 }}>Hoặc tiếp tục với</Divider>
 

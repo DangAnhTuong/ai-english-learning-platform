@@ -5,8 +5,9 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { loginSuccess, loginStart, loginFailure } from '../../redux/authSlice';
 import { authService } from '../../services/authService';
+import { useGoogleLogin } from '@react-oauth/google';
 import './style.css'; 
-import registerImg from '../../img/brainn.jpg'; // Dùng chung ảnh với login
+import registerImg from '../../img/brainn.jpg';
 import defaultUserAvatar from '../../img/avatar.jpg';
 
 function Register() {
@@ -15,21 +16,59 @@ function Register() {
   const [loading, setLoading] = useState(false);
   const [socialLoading, setSocialLoading] = useState(false);
 
-  // --- ĐĂNG KÝ BẰNG GOOGLE ---
-  const handleGoogleLogin = () => {
-    setSocialLoading(true);
-    // Redirect đến Google OAuth endpoint
-    const apiBaseUrl = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
-    window.location.href = `${apiBaseUrl}/auth/google`;
+  const handleLoginSuccess = (response) => {
+    const data = response.data || response;
+    
+    if (data.user && data.accessToken && data.refreshToken) {
+      const { user, accessToken, refreshToken } = data;
+      
+      const userData = {
+        id: user._id || user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        avatar: user.avatar || defaultUserAvatar,
+        roles: user.roles || ['student'],
+        status: user.status,
+        isEmailVerified: user.isEmailVerified || false,
+      };
+
+      dispatch(loginSuccess({
+        user: userData,
+        accessToken,
+        refreshToken,
+      }));
+
+      message.success('Đăng ký/Đăng nhập thành công!');
+      navigate('/');
+    } else {
+      throw new Error(response.error || data.error || 'Thao tác thất bại');
+    }
   };
 
-  // --- ĐĂNG KÝ THƯỜNG ---
+  const handleGoogleLogin = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      setSocialLoading(true);
+      try {
+        const response = await authService.loginWithGoogle(tokenResponse.access_token);
+        handleLoginSuccess(response);
+      } catch (error) {
+        console.error('Google login error:', error);
+        message.error('Đăng nhập Google thất bại từ máy chủ.');
+      } finally {
+        setSocialLoading(false);
+      }
+    },
+    onError: () => {
+      message.error('Đăng nhập Google thất bại');
+    }
+  });
+
   const onFinish = async (values) => {
     setLoading(true);
     dispatch(loginStart());
     
     try {
-      // Validate password
       if (values.password.length < 6) {
         throw new Error('Mật khẩu phải có ít nhất 6 ký tự');
       }
@@ -42,45 +81,13 @@ function Register() {
         password: values.password,
       });
 
-      // Backend trả về trực tiếp { user, accessToken, refreshToken }
-      // Hoặc có thể wrap trong { success: true, data: {...} }
-      const data = response.data || response;
-      
-      if (data.user && data.accessToken && data.refreshToken) {
-        const { user, accessToken, refreshToken } = data;
-        
-        // Format user data
-        const userData = {
-          id: user._id || user.id,
-          name: user.name,
-          email: user.email,
-          phone: user.phone,
-          avatar: user.avatar || defaultUserAvatar,
-          roles: user.roles || ['student'],
-          status: user.status,
-          isEmailVerified: user.isEmailVerified || false,
-        };
-
-        // Dispatch success với tokens
-        dispatch(loginSuccess({
-          user: userData,
-          accessToken,
-          refreshToken,
-        }));
-
-        message.success('Đăng ký tài khoản thành công!');
-        message.info('Vui lòng kiểm tra email để xác thực tài khoản của bạn.');
-        
-        navigate('/');
-      } else {
-        throw new Error(response.error || data.error || 'Đăng ký thất bại');
-      }
+      handleLoginSuccess(response);
+      message.info('Vui lòng kiểm tra email để xác thực tài khoản của bạn.');
     } catch (error) {
       console.error('Register error:', error);
       const errorMessage = error.response?.data?.error || error.message || 'Đăng ký thất bại. Vui lòng thử lại!';
       dispatch(loginFailure(errorMessage));
       
-      // Hiển thị lỗi cụ thể
       if (errorMessage.includes('Email đã được đăng ký')) {
         message.error('Email này đã được sử dụng. Vui lòng đăng nhập hoặc dùng email khác!');
       } else if (errorMessage.includes('Tên người dùng đã được sử dụng')) {
@@ -96,10 +103,10 @@ function Register() {
   };
 
   return (
-    <div className="auth-page"> {/* Dùng chung class auth-page */}
+    <div className="register-page">
       
       {/* CỘT TRÁI */}
-      <div className="auth-left">
+      <div className="register-left">
         <div className="auth-left-content">
             <img src={registerImg} alt="English AI" className="hero-img"/>
             <h2>Tham gia cộng đồng English AI</h2>
@@ -108,10 +115,10 @@ function Register() {
       </div>
 
       {/* CỘT PHẢI */}
-      <div className="auth-right">
-        <div className="auth-form-container">
-          <h1 className="auth-title">Tạo tài khoản mới</h1>
-          <span className="auth-subtitle">Điền thông tin bên dưới để bắt đầu hành trình.</span>
+      <div className="register-right">
+        <div className="register-form-container">
+          <h1>Tạo tài khoản mới</h1>
+          <span className="sub-text">Điền thông tin bên dưới để bắt đầu hành trình.</span>
 
           <Form layout="vertical" onFinish={onFinish} size="large">
             <Form.Item
@@ -163,10 +170,19 @@ function Register() {
               <Input.Password prefix={<LockOutlined />} placeholder="Xác nhận mật khẩu" />
             </Form.Item>
 
-            <Button type="primary" htmlType="submit" block className="btn-auth" loading={loading}>
+            <Button type="primary" htmlType="submit" block className="btn-register" loading={loading}>
               Đăng ký tài khoản
             </Button>
           </Form>
+
+          <Button 
+            type="dashed" 
+            block 
+            style={{ marginTop: 15, borderColor: '#1890ff', color: '#1890ff' }}
+            onClick={() => navigate('/login')}
+          >
+            Đăng nhập nhanh dành cho Nhà tuyển dụng (Demo)
+          </Button>
 
           <Divider style={{color: '#999', fontSize: 13}}>Hoặc đăng ký với</Divider>
           
@@ -189,8 +205,8 @@ function Register() {
             </Button>
           </div>
 
-          <div className="auth-action-footer">
-             Đã có tài khoản? <NavLink to="/login" className="link-bold">Đăng nhập ngay</NavLink>
+          <div className="auth-actions">
+             Đã có tài khoản? <NavLink to="/login">Đăng nhập ngay</NavLink>
           </div>
         </div>
       </div>

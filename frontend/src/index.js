@@ -9,13 +9,17 @@ import { store } from './redux/store';
 import { BrowserRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async'; // Thêm HelmetProvider cho SEO
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <Provider store={store}>
     <HelmetProvider>
-      <BrowserRouter> 
-        <App />
-      </BrowserRouter>
+      <GoogleOAuthProvider clientId="151027052858-mmdiucsj3s8ddkmfk0rieanmhojts1np.apps.googleusercontent.com">
+        <BrowserRouter> 
+          <App />
+        </BrowserRouter>
+      </GoogleOAuthProvider>
     </HelmetProvider>
   </Provider>
 );
