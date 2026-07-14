@@ -6,7 +6,7 @@ import api from './api'; // Đây là kết nối tới Node.js (Cổng 3001)
  */
 
 // Địa chỉ của Python AI
-const PYTHON_API_URL = 'http://localhost:8000/api/v1';
+const PYTHON_API_URL = process.env.REACT_APP_PYTHON_API_URL ? `${process.env.REACT_APP_PYTHON_API_URL}/api/v1` : 'http://localhost:8000/api/v1';
 
 const pythonApi = axios.create({
     baseURL: PYTHON_API_URL,
@@ -62,12 +62,12 @@ export const conversationService = {
      */
     getAudioUrl(conversationId, filename) {
         if (!conversationId || !filename) return null;
-        // Audio file thường được server Python trả về
-        return `http://localhost:8000/api/v1/conversation/audio/${conversationId}/${filename.replace(/^\//, '')}`;
+        const baseUrl = process.env.REACT_APP_PYTHON_API_URL ? `${process.env.REACT_APP_PYTHON_API_URL}/api/v1` : 'http://localhost:8000/api/v1';
+        return `${baseUrl}/conversation/audio/${conversationId}/${filename.replace(/^\//, '')}`;
     },
 
     createWebSocketConnection(connectionId) {
-        const WS_URL = 'ws://localhost:8000';
+        const WS_URL = process.env.REACT_APP_PYTHON_WS_URL || 'ws://localhost:8000';
         return new WebSocket(`${WS_URL}/ws/conversation/${connectionId}`);
     },
 
