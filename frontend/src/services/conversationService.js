@@ -67,7 +67,11 @@ export const conversationService = {
     },
 
     createWebSocketConnection(connectionId) {
-        const WS_URL = process.env.REACT_APP_PYTHON_WS_URL || 'ws://localhost:8000';
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        const WS_URL = (process.env.NODE_ENV === 'production' || host !== 'localhost:3000')
+            ? `${protocol}//${host}`
+            : 'ws://localhost:8000';
         return new WebSocket(`${WS_URL}/ws/conversation/${connectionId}`);
     },
 
