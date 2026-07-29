@@ -183,6 +183,52 @@ class RealtimeService:
         except Exception as e:
             logger.error(f"AI response failed: {str(e)}")
             return f"Sorry, I'm having trouble responding right now. Let me try to help you in a different way. What would you like to practice?"
+
+    async def stream_ai_response(self, user_message: str, conversation_history: list = None):
+        """Stream response từ AI assistant bằng Async Generator"""
+        try:
+            if not self.is_initialized:
+                await self.initialize()
+            
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                yield "I'm sorry, OpenAI API Key is not configured."
+                return
+
+            if conversation_history:
+                recent_messages = conversation_history[-10:]
+                max_context_tokens = 2000
+                context_messages, _ = calculate_context_tokens(recent_messages, max_context_tokens)
+                context = format_context_string(context_messages)
+            else:
+                context = ""
+            
+            system_prompt = "EN tutor: Brief, encouraging. Max 50 words. VN/EN OK."
+            messages = [{"role": "system", "content": system_prompt}]
+            
+            if context:
+                messages.append({"role": "user", "content": f"Context:\n{context}\n\nCurrent message: {user_message}"})
+            else:
+                messages.append({"role": "user", "content": user_message})
+
+            response = self.client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=messages,
+                max_tokens=150,
+                temperature=0.7,
+                stream=True
+            )
+            
+            for chunk in response:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta.content
+                    if delta:
+                        yield delta
+                        
+        except Exception as e:
+            logger.error(f"AI streaming response failed: {str(e)}")
+            yield " Sorry, an error occurred while streaming."
+
     
     async def get_pronunciation_feedback(self, expected_text: str, user_transcript: str) -> str:
         """Đưa ra feedback về phát âm sử dụng AI assistant"""

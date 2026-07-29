@@ -35,12 +35,12 @@ async def get_conversation_service() -> ConversationService:
     """Get conversation service instance with dependencies"""
     # This will be properly implemented with dependency injection container
     from app.services.repositories.conversation_repository import MongoConversationRepository
-    from app.services.ai_conversation_service import OpenAIConversationService
+    from app.services.ai_conversation_service import GeminiConversationService
     from app.services.deepgram_service import DeepgramService
     
     db = await get_database()
     repository = MongoConversationRepository(db)
-    ai_service = OpenAIConversationService()
+    ai_service = GeminiConversationService()
     deepgram_service = DeepgramService()
     
     return ConversationService(repository, ai_service, deepgram_service)
@@ -350,9 +350,9 @@ async def get_dynamic_ai_response(
 ):
     """Get dynamic AI response when user deviates from script"""
     try:
-        from app.services.ai_conversation_service import OpenAIConversationService
+        from app.services.ai_conversation_service import GeminiConversationService
         
-        ai_service = OpenAIConversationService()
+        ai_service = GeminiConversationService()
         
         # Create session context from request
         session_id = f"temp_{id(request)}"

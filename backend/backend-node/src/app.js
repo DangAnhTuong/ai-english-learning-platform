@@ -24,7 +24,10 @@ require('./config/passport')();
 const app = express();
 
 app.disable('x-powered-by');
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" }
+}));
 app.use(compression());
 
 // Setup Morgan với file logging

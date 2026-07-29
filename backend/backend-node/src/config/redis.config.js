@@ -1,21 +1,26 @@
-const redis = require('redis');
+// Mock Redis client for local development without Docker
+const inMemoryStore = new Map();
 
-const redisUri = process.env.REDIS_URI || 'redis://localhost:6379';
-
-const redisClient = redis.createClient({
-    url: redisUri
-});
-
-redisClient.on('error', (err) => console.error('Redis Client Error', err));
-redisClient.on('connect', () => console.log('✅ Redis connected successfully'));
-
-// Connect immediately
-(async () => {
-    try {
-        await redisClient.connect();
-    } catch (error) {
-        console.error('Failed to connect to Redis on startup:', error);
+const redisClient = {
+    setEx: async (key, seconds, value) => {
+        inMemoryStore.set(key, value);
+        // Automatically delete after expiration
+        setTimeout(() => {
+            inMemoryStore.delete(key);
+        }, seconds * 1000);
+        return 'OK';
+    },
+    get: async (key) => {
+        return inMemoryStore.get(key) || null;
+    },
+    del: async (key) => {
+        inMemoryStore.delete(key);
+        return 1;
+    },
+    on: () => {},
+    connect: async () => {
+        console.log('✅ Mock In-Memory Redis connected successfully (No Docker needed)');
     }
-})();
+};
 
 module.exports = redisClient;

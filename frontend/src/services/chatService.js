@@ -93,6 +93,64 @@ export const chatService = {
     },
 
     /**
+     * Gửi tin nhắn và nhận stream phản hồi từ AI (SSE)
+     * @param {string} message - Tin nhắn của user
+     * @param {Array} conversationHistory - Lịch sử
+     * @param {function} onChunk - Callback gọi khi có chữ mới
+     */
+    async streamMessage(message, conversationHistory = [], onChunk) {
+        try {
+            const token = localStorage.getItem('accessToken');
+            const headers = {
+                'Content-Type': 'application/json'
+            };
+            if (token) headers['Authorization'] = `Bearer ${token}`;
+
+            const response = await fetch(`${PYTHON_API_URL}/api/v1/realtime/chat_stream`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({
+                    message,
+                    conversation_history: conversationHistory
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let done = false;
+
+            while (!done) {
+                const { value, done: readerDone } = await reader.read();
+                done = readerDone;
+                if (value) {
+                    const chunkStr = decoder.decode(value, { stream: true });
+                    const lines = chunkStr.split('\n');
+                    for (const line of lines) {
+                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                            try {
+                                const data = JSON.parse(line.slice(6));
+                                if (data.content) {
+                                    onChunk(data.content);
+                                }
+                            } catch (e) {
+                                console.error('Lỗi parse SSE chunk:', e);
+                            }
+                        }
+                    }
+                }
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Chat stream API error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
      * Transcribe audio bằng Whisper
      * @param {Blob} audioBlob - Audio file blob
      */
@@ -151,7 +209,31 @@ export const chatService = {
             return { success: false, error: error.message };
         }
     },
-    async generateTTS(text, voice = 'shimmer') {
+    async generateTTS(text, voice = 'shimmer', localTtsUrl = '') {
+        // Ưu tiên sử dụng Supertonic (Kokoro TTS) Local
+        if (localTtsUrl && localTtsUrl.trim() !== '') {
+            try {
+                const supertonicVoice = voice === 'shimmer' ? 'af_bella' : 'am_adam';
+                const res = await fetch(localTtsUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        model: "kokoro",
+                        input: text,
+                        voice: supertonicVoice,
+                        response_format: "mp3"
+                    })
+                });
+                if (res.ok) {
+                    return await res.blob();
+                } else {
+                    console.warn("Lỗi Supertonic TTS:", await res.text());
+                }
+            } catch (e) {
+                console.warn("Không kết nối được Supertonic/Kokoro Local, chuyển về server TTS...", e);
+            }
+        }
+
         try {
             const response = await fetch(`${PYTHON_API_URL}/api/v1/tts/generate`, {
                 method: 'POST',

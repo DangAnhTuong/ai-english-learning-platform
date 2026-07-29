@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Form, HTTPException # Phải có chữ Form
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 import json
 import os
 import difflib # Thêm cái này để thuật toán tính điểm chạy được
@@ -79,6 +79,28 @@ async def chat_response(request: Dict[str, Any]):
     except Exception as e:
         print(f"Chat failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+@router.post("/chat_stream")
+async def chat_stream_response(request: Dict[str, Any]):
+    """Stream AI response for chat conversation using SSE"""
+    try:
+        user_message = request.get("message", "")
+        conversation_history = request.get("conversation_history", [])
+        
+        if not user_message:
+            raise HTTPException(status_code=400, detail="Message is required")
+        
+        async def event_generator():
+            async for chunk in realtime_service.stream_ai_response(user_message, conversation_history):
+                # Format as Server-Sent Events (SSE)
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+            yield "data: [DONE]\n\n"
+            
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        
+    except Exception as e:
+        print(f"Chat stream failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Chat stream failed: {str(e)}")
 
 @router.post("/feedback")
 async def pronunciation_feedback(request: Dict[str, Any]):

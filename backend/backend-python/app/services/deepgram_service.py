@@ -6,7 +6,9 @@ import aiofiles
 import os
 import uuid
 from typing import Optional, Dict, Any
-from deepgram import Deepgram
+import httpx
+import tempfile
+import io
 
 logger = logging.getLogger(__name__)
 
@@ -51,15 +53,15 @@ class DeepgramService(IDeepgramService):
         self.audio_storage_path = os.getenv("AUDIO_STORAGE_PATH", "./temp_audio")
         self._ensure_audio_directory()
     
-    def _get_deepgram_client(self) -> Deepgram:
-        """Get Deepgram client instance"""
-        if self.client is None:
-            api_key = os.getenv("DEEPGRAM_API_KEY")
-            if not api_key:
-                # Return None for now - we'll use mock TTS
-                return None
-            self.client = Deepgram(api_key)
-        return self.client
+    def _get_whisper_model(self):
+        """Get Faster-Whisper model instance"""
+        if not hasattr(self, 'whisper_model'):
+            from faster_whisper import WhisperModel
+            # Using 'small' model for a good balance of speed and accuracy on CPU
+            logger.info("Loading Faster-Whisper model...")
+            self.whisper_model = WhisperModel("small", device="cpu", compute_type="int8")
+            logger.info("Faster-Whisper model loaded")
+        return self.whisper_model
     
     def _ensure_audio_directory(self) -> None:
         """Ensure audio storage directory exists"""
@@ -68,54 +70,41 @@ class DeepgramService(IDeepgramService):
     async def speech_to_text(
         self,
         audio_data: bytes,
-        language: str = "en-US",
-        model: str = "nova-2"
+        language: str = "en",
+        model: str = "small"
     ) -> str:
-        """Convert speech to text using Deepgram"""
+        """Convert speech to text using Faster-Whisper (Local)"""
         try:
-            deepgram_client = self._get_deepgram_client()
+            model = self._get_whisper_model()
             
-            # Configure transcription options for cost optimization
-            options = {
-                "model": model,  # nova-2 is cost-effective and accurate
-                "language": language,
-                "smart_format": True,
-                "punctuate": True,
-                "diarize": False,  # Disable speaker diarization to save costs
-                "multichannel": False,
-                "alternatives": 1,  # Only get top result to save costs
-                "interim_results": False,
-                "endpointing": True,
-                "vad_turnoff": 1000,  # Voice activity detection timeout
-                "profanity_filter": False,
-                "redact": False,
-                "search": [],
-                "replace": [],
-                "keywords": [],
-                "numerals": True
-            }
-            
-            # Perform transcription
-            response = await asyncio.to_thread(
-                deepgram_client.transcription.prerecorded,
-                {"buffer": audio_data, "mimetype": "audio/webm"},
-                options
-            )
-            
-            # Extract transcript
-            if response and "results" in response:
-                channels = response["results"]["channels"]
-                if channels and len(channels) > 0:
-                    alternatives = channels[0]["alternatives"]
-                    if alternatives and len(alternatives) > 0:
-                        transcript = alternatives[0]["transcript"].strip()
-                        
-                        if transcript:
-                            logger.info(f"STT successful: {len(transcript)} characters")
-                            return transcript
-            
-            logger.warning("STT returned empty transcript")
-            return ""
+            # Write bytes to temporary file for av/ffmpeg to process correctly
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_audio:
+                temp_audio.write(audio_data)
+                temp_audio_path = temp_audio.name
+                
+            try:
+                # Perform transcription
+                # Run in a separate thread to avoid blocking the event loop
+                def _transcribe():
+                    segments, info = model.transcribe(
+                        temp_audio_path, 
+                        beam_size=5,
+                        language=language if language != "en-US" else "en"
+                    )
+                    return " ".join([segment.text for segment in segments]).strip()
+                
+                transcript = await asyncio.to_thread(_transcribe)
+                
+                if transcript:
+                    logger.info(f"STT successful (Faster-Whisper): {len(transcript)} characters")
+                    return transcript
+                    
+                logger.warning("STT returned empty transcript")
+                return ""
+            finally:
+                # Clean up temporary file
+                if os.path.exists(temp_audio_path):
+                    os.remove(temp_audio_path)
             
         except Exception as e:
             logger.error(f"STT error: {str(e)}")
@@ -127,105 +116,88 @@ class DeepgramService(IDeepgramService):
         voice_settings: Optional[Dict[str, Any]] = None,
         character_name: Optional[str] = None
     ) -> Optional[str]:
-        """Convert text to speech using Deepgram Aura (cost-effective TTS)"""
+        """Convert text to speech using Supertonic/Kokoro (Local)"""
         try:
-            deepgram_client = self._get_deepgram_client()
-            
-            # If no Deepgram client (no API key), return mock audio indicator
-            if not deepgram_client:
-                logger.info(f"Mock TTS for {character_name or 'AI'}: {text[:50]}...")
-                # Return a mock indicator that frontend will handle as text-to-speech
-                return "mock-tts-audio"
-            
-            # Default voice settings optimized for cost and quality
-            default_settings = {
-                "model": "aura-asteria-en",  # Natural English voice
-                "encoding": "linear16",
-                "container": "wav",
-                "sample_rate": 24000,
-                "bit_rate": 128000
+            # Select Kokoro voice based on character
+            character_voice_map = {
+                "sarah": "af_bella",      
+                "mr. johnson": "am_michael", 
+                "alexandra": "af_sarah",  
+                "emma": "af_sky",      
+                "david": "am_adam"        
             }
             
-            # Select voice based on character if provided
-            if character_name and not voice_settings:
-                character_voice_map = {
-                    "sarah": "aura-stella-en",      # Restaurant server - friendly
-                    "mr. johnson": "aura-orion-en", # Interview manager - professional
-                    "alexandra": "aura-athena-en",  # Business analyst - confident
-                    "emma": "aura-asteria-en",      # Sales associate - warm
-                    "david": "aura-arcas-en"        # Travel agent - conversational
-                }
-                
-                selected_voice = character_voice_map.get(
-                    character_name.lower(), 
-                    "aura-asteria-en"  # Default fallback
-                )
-                default_settings["model"] = selected_voice
-            
-            # Merge with provided settings
-            if voice_settings:
-                default_settings.update(voice_settings)
-            
-            # Generate speech
-            response = await asyncio.to_thread(
-                deepgram_client.speak.v("1").save,
-                filename=None,  # Get response directly
-                source={"text": text},
-                options=default_settings
+            selected_voice = character_voice_map.get(
+                character_name.lower() if character_name else "", 
+                "af_bella"  # Default fallback
             )
             
-            if response:
-                # Generate unique filename
-                character_prefix = character_name.lower().replace(" ", "_") if character_name else "ai"
-                audio_filename = f"{character_prefix}_{uuid.uuid4()}.wav"
-                audio_path = os.path.join(self.audio_storage_path, audio_filename)
-                
-                # Save audio file
-                async with aiofiles.open(audio_path, "wb") as f:
-                    await f.write(response)
-                
-                logger.info(f"TTS successful for {character_name or 'AI'}: {audio_filename}")
-                return audio_path
+            # Generate unique filename
+            character_prefix = character_name.lower().replace(" ", "_") if character_name else "ai"
+            audio_filename = f"{character_prefix}_{uuid.uuid4()}.wav"
+            audio_path = os.path.join(self.audio_storage_path, audio_filename)
             
-            logger.warning("TTS returned empty response")
-            return None
+            # Call local Supertonic TTS Server
+            # Assuming Supertonic is running locally on port 8888 (OpenAI compatible endpoint)
+            supertonic_url = os.getenv("SUPERTONIC_URL", "http://127.0.0.1:8888/v1/audio/speech")
+            
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    supertonic_url,
+                    json={
+                        "input": text,
+                        "voice": selected_voice,
+                        "model": "kokoro",
+                        "response_format": "wav"
+                    }
+                )
+                
+                if response.status_code == 200:
+                    # Save audio file
+                    async with aiofiles.open(audio_path, "wb") as f:
+                        await f.write(response.content)
+                    
+                    logger.info(f"Supertonic TTS successful for {character_name or 'AI'}: {audio_filename}")
+                    return audio_path
+                else:
+                    logger.warning(f"Supertonic returned status {response.status_code}: {response.text}")
+                    # Fallback to Edge-TTS if Supertonic is not running
+                    logger.info("Falling back to Edge-TTS...")
+                    import edge_tts
+                    edge_voice = "en-US-AriaNeural"
+                    communicate = edge_tts.Communicate(text, edge_voice)
+                    await communicate.save(audio_path.replace(".wav", ".mp3"))
+                    return audio_path.replace(".wav", ".mp3")
             
         except Exception as e:
             logger.error(f"TTS error: {str(e)}")
-            # Return mock indicator on error
-            return "mock-tts-audio"
+            # Try fallback to Edge-TTS one last time
+            try:
+                import edge_tts
+                character_prefix = character_name.lower().replace(" ", "_") if character_name else "ai"
+                audio_filename = f"{character_prefix}_{uuid.uuid4()}.mp3"
+                audio_path = os.path.join(self.audio_storage_path, audio_filename)
+                communicate = edge_tts.Communicate(text, "en-US-AriaNeural")
+                await communicate.save(audio_path)
+                return audio_path
+            except:
+                return "mock-tts-audio"
     
     async def transcribe_audio(
         self,
         audio_data: bytes,
         language: str = "en"
     ) -> Optional[str]:
-        """Transcribe audio using OpenAI Whisper via realtime service fallback"""
+        """Transcribe audio (Direct call to Faster-Whisper)"""
         try:
-            # Check if we have Deepgram client
-            deepgram_client = self._get_deepgram_client()
-            
-            if deepgram_client:
-                # Try Deepgram STT first if available
-                result = await self.speech_to_text(
-                    audio_data=audio_data,
-                    language=f"{language}-US" if language == "en" else language,
-                    model="nova-2"
-                )
-                
-                if result and result.strip():
-                    return result.strip()
-            
-            # Use OpenAI Whisper as primary/fallback
-            logger.info("Using OpenAI Whisper for transcription")
-            
-            from app.services.realtime_service import realtime_service
-            whisper_result = await realtime_service.process_audio_transcription(
-                audio_data, "audio/webm"
+            result = await self.speech_to_text(
+                audio_data=audio_data,
+                language="en",
+                model="small"
             )
             
-            if not whisper_result.get("error") and whisper_result.get("transcript"):
-                return whisper_result["transcript"].strip()
+            if result and result.strip():
+                return result.strip()
             
             logger.warning("Transcription failed")
             return None

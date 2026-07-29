@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 import logging
 import asyncio
 from typing import List, Optional, Dict, Any
-from openai import OpenAI
+import google.generativeai as genai
 import os
 
 from app.models.conversation import ConversationScenario, ConversationMessage
@@ -39,21 +39,24 @@ class IAIConversationService(ABC):
     async def cleanup_conversation(self, session_id: str) -> None:
         pass
 
-class OpenAIConversationService(IAIConversationService):
-    """OpenAI implementation of AI conversation service with role-playing"""
+class GeminiConversationService(IAIConversationService):
+    """Gemini implementation of AI conversation service with role-playing"""
     
     def __init__(self):
-        self.client = None
+        self.model = None
         self._session_contexts: Dict[str, Dict[str, Any]] = {}
+        self._init_gemini()
     
-    def _get_openai_client(self) -> OpenAI:
-        """Get OpenAI client instance"""
-        if self.client is None:
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                raise ValueError("OPENAI_API_KEY not found in environment variables")
-            self.client = OpenAI(api_key=api_key)
-        return self.client
+    def _init_gemini(self) -> None:
+        """Initialize Gemini client"""
+        api_key = os.getenv("GEMINI_API_KEY")
+        if not api_key:
+            api_key = os.getenv("OPENAI_API_KEY") # Fallback
+        if api_key:
+            genai.configure(api_key=api_key)
+            self.model = genai.GenerativeModel('gemini-1.5-flash')
+        else:
+            logger.warning("GEMINI_API_KEY not found in environment variables")
     
     async def initialize_conversation(
         self,
@@ -152,19 +155,31 @@ class OpenAIConversationService(IAIConversationService):
             }
         
         try:
-            # Generate response using OpenAI
-            client = self._get_openai_client()
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                model="gpt-4o-mini",
-                messages=messages[-12:],  # Limit context to last 12 messages for efficiency
-                max_tokens=150,  # Optimized for conversation flow
-                temperature=0.8,  # Higher temperature for more natural conversation
-                presence_penalty=0.1,
-                frequency_penalty=0.1
+            if not self.model:
+                self._init_gemini()
+                
+            model = genai.GenerativeModel(
+                model_name='gemini-1.5-flash',
+                system_instruction=messages[0]["content"],
+                generation_config=genai.GenerationConfig(
+                    max_output_tokens=150,
+                    temperature=0.8,
+                )
             )
             
-            ai_response = response.choices[0].message.content.strip()
+            gemini_history = []
+            for msg in messages[1:-1]:
+                role = "user" if msg["role"] == "user" else "model"
+                gemini_history.append({"role": role, "parts": [msg["content"]]})
+                
+            chat = model.start_chat(history=gemini_history)
+            
+            response = await asyncio.to_thread(
+                chat.send_message,
+                user_message
+            )
+            
+            ai_response = response.text.strip()
             
             # Update internal context
             if not conversation_context:

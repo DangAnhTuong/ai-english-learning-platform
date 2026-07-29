@@ -8,7 +8,7 @@ from datetime import datetime
 
 from app.services.conversation_service import ConversationService
 from app.services.repositories.conversation_repository import MongoConversationRepository
-from app.services.ai_conversation_service import OpenAIConversationService
+from app.services.ai_conversation_service import GeminiConversationService
 from app.services.deepgram_service import DeepgramService
 from app.core.database import get_database
 
@@ -28,7 +28,7 @@ class ConversationWebSocketManager:
         if self.conversation_service is None:
             db = await get_database()
             repository = MongoConversationRepository(db)
-            ai_service = OpenAIConversationService()
+            ai_service = GeminiConversationService()
             deepgram_service = DeepgramService()
             self.conversation_service = ConversationService(repository, ai_service, deepgram_service)
         return self.conversation_service
