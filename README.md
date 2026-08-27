@@ -9,7 +9,15 @@
 
 A modern, production-grade, multi-service AI web application designed for interactive English learning. It combines structured curriculum learning with real-time AI conversational practice, speech-to-text pronunciation evaluation, and vocabulary mindmapping.
 
-🌐 **Live Production App:** [https://danganhtuong.dev](https://danganhtuong.dev)
+---
+
+## 🎬 Demo & Video Showcase
+
+> 💡 *Dự án tích hợp đầy đủ tương tác thời gian thực (Microphone STT, Voice TTS chuẩn bản ngữ & Đàm thoại AI).*
+
+<!-- Thêm link video YouTube/Loom hoặc file demo.mp4 vào đây -->
+[![Watch the Demo Video](https://img.shields.io/badge/YouTube-Watch%20Demo%20Video-red?style=for-the-badge&logo=youtube)](#)
+[![Video Walkthrough](https://img.shields.io/badge/Demo-Loom%20Walkthrough-blue?style=for-the-badge&logo=loom)](#)
 
 ---
 

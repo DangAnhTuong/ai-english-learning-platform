@@ -1,0 +1,43 @@
+name: CI Code Verification
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  verify:
+    name: Build & Code Verification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Verify Backend Node syntax
+        run: |
+          node -c backend/backend-node/src/server.js
+          echo "Node.js syntax verified successfully"
+
+      - name: Verify Backend Python syntax
+        run: |
+          python -m py_compile backend/backend-python/run_server.py
+          echo "Python server syntax verified successfully"
+
+      - name: Verify System Scripts
+        run: |
+          python -m py_compile scripts/test_full_system.py
+          echo "System test script verified successfully"
