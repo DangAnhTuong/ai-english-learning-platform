@@ -1,0 +1,15 @@
+{
+  "name": "english-app-clean-root",
+  "version": "1.0.0",
+  "description": "AI English Learning Platform - Full Stack Monorepo",
+  "scripts": {
+    "dev:frontend": "cd frontend && node start.js",
+    "dev:backend-node": "cd backend/backend-node && node src/server.js",
+    "dev:backend-python": "cd backend/backend-python && python -u run_server.py",
+    "dev": "concurrently -n \"NODE,PYTHON,FRONTEND\" -c \"blue,green,magenta\" \"npm run dev:backend-node\" \"npm run dev:backend-python\" \"npm run dev:frontend\"",
+    "start": "npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.4"
+  }
+}

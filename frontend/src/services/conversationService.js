@@ -62,17 +62,30 @@ export const conversationService = {
      */
     getAudioUrl(conversationId, filename) {
         if (!conversationId || !filename) return null;
+        if (filename.startsWith('http://') || filename.startsWith('https://')) {
+            return filename;
+        }
         const baseUrl = process.env.REACT_APP_PYTHON_API_URL ? `${process.env.REACT_APP_PYTHON_API_URL}/api/v1` : 'http://localhost:8000/api/v1';
-        return `${baseUrl}/conversation/audio/${conversationId}/${filename.replace(/^\//, '')}`;
+        // Extract only the raw filename (e.g. line_1_xxx.mp3)
+        const cleanName = filename.split('/').filter(Boolean).pop();
+        return `${baseUrl}/conversation/audio/${conversationId}/${cleanName}`;
     },
 
     createWebSocketConnection(connectionId) {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const host = window.location.host;
-        const WS_URL = (process.env.NODE_ENV === 'production' || host !== 'localhost:3000')
-            ? `${protocol}//${host}`
-            : 'ws://localhost:8000';
-        return new WebSocket(`${WS_URL}/ws/conversation/${connectionId}`);
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        let wsBase = '';
+        
+        if (process.env.REACT_APP_PYTHON_WS_URL) {
+            wsBase = process.env.REACT_APP_PYTHON_WS_URL.replace(/\/$/, '');
+        } else if (isLocal) {
+            wsBase = 'ws://localhost:8000';
+        } else if (process.env.REACT_APP_PYTHON_API_URL) {
+            wsBase = process.env.REACT_APP_PYTHON_API_URL.replace(/\/$/, '').replace(/^http/, 'ws');
+        } else {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            wsBase = `${protocol}//${window.location.host}`;
+        }
+        return new WebSocket(`${wsBase}/ws/conversation/${connectionId}`);
     },
 
     WS_RESPONSE_TYPES: {

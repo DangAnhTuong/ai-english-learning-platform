@@ -253,6 +253,73 @@ export const chatService = {
     },
 
     /**
+     * Tra cứu từ vựng tiếng Anh
+     */
+    async lookupWord(word) {
+        try {
+            const data = await request('/api/v1/realtime/lookup', {
+                method: 'POST',
+                body: { word }
+            });
+            return { success: true, data };
+        } catch (error) {
+            console.error('Lookup API error:', error);
+            return {
+                success: false,
+                data: {
+                    word: word,
+                    ipa: '',
+                    type: 'word',
+                    meaning: `Từ: ${word}`,
+                    example: ''
+                }
+            };
+        }
+    },
+
+    /**
+     * Lấy gợi ý phản xạ nhanh theo ngữ cảnh
+     */
+    async getQuickSuggestions(lastAiMessage, conversationHistory = []) {
+        try {
+            const data = await request('/api/v1/realtime/suggestions', {
+                method: 'POST',
+                body: {
+                    last_ai_message: lastAiMessage,
+                    conversation_history: conversationHistory.slice(-6)
+                }
+            });
+            return { success: true, suggestions: data.suggestions || [] };
+        } catch (error) {
+            console.error('Suggestions API error:', error);
+            return { 
+                success: false, 
+                suggestions: [
+                    "Could you explain more about that?",
+                    "That sounds very interesting!",
+                    "How do I say this correctly?"
+                ] 
+            };
+        }
+    },
+
+    /**
+     * Dịch nhanh văn bản sang tiếng Việt
+     */
+    async translateText(text, targetLang = 'vi') {
+        try {
+            const data = await request('/api/v1/realtime/translate', {
+                method: 'POST',
+                body: { text, target_lang: targetLang }
+            });
+            return { success: true, translation: data.translation };
+        } catch (error) {
+            console.error('Translate API error:', error);
+            return { success: false, error: error.message };
+        }
+    },
+
+    /**
      * Kiểm tra trạng thái service
      */
     async healthCheck() {

@@ -2,9 +2,12 @@ import os
 from openai import OpenAI
 from typing import Dict, Any
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def get_client():
+    api_key = os.getenv("OPENAI_API_KEY") or "placeholder"
+    return OpenAI(api_key=api_key)
 
 def generate_mindmap(topic: str) -> Dict[str, Any]:
+    client = get_client()
     prompt = f"""
     Hãy tạo một sơ đồ tư duy (mindmap) chuyên sâu cho từ hoặc chủ đề: "{topic}".
     Yêu cầu trả về JSON định dạng cây (tree structure).

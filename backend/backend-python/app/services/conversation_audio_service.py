@@ -419,7 +419,8 @@ class ConversationAudioService:
     
     def get_audio_file_path(self, conversation_id: str, filename: str) -> Optional[Path]:
         """Lấy đường dẫn file audio"""
-        file_path = Path(self.audio_storage_path) / conversation_id / filename
+        clean_filename = Path(filename).name
+        file_path = Path(self.audio_storage_path) / conversation_id / clean_filename
         
         if file_path.exists() and file_path.is_file():
             return file_path

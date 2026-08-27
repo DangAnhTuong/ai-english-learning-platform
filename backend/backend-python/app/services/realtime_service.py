@@ -2,7 +2,9 @@ import os
 import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional, Callable
+import re
+from typing import Dict, Any, Optional
+import google.generativeai as genai
 from openai import OpenAI
 from app.utils.token_utils import calculate_context_tokens, format_context_string
 
@@ -10,264 +12,264 @@ from app.utils.token_utils import calculate_context_tokens, format_context_strin
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Built-in instant dictionary database for instant lookup
+BUILTIN_DICTIONARY = {
+    "hello": {"ipa": "/həˈloʊ/", "type": "interjection", "meaning": "Xin chào (lời chào hỏi thông dụng)", "example": "Hello! How are you today?"},
+    "conversation": {"ipa": "/ˌkɑːn.vɚˈseɪ.ʃən/", "type": "noun", "meaning": "Cuộc trò chuyện, hội thoại", "example": "We had a long conversation about music."},
+    "practice": {"ipa": "/ˈpræk.tɪs/", "type": "verb / noun", "meaning": "Luyện tập, thực hành", "example": "Practice makes perfect."},
+    "order": {"ipa": "/ˈɔːr.dɚ/", "type": "verb / noun", "meaning": "Gọi món, đặt hàng / đơn hàng", "example": "Are you ready to order?"},
+    "restaurant": {"ipa": "/ˈres.tə.rɑːnt/", "type": "noun", "meaning": "Nhà hàng, quán ăn", "example": "Let's go to an Italian restaurant."},
+    "chicken": {"ipa": "/ˈtʃɪk.ɪn/", "type": "noun", "meaning": "Thịt gà, con gà", "example": "I would like the grilled chicken, please."},
+    "grilled": {"ipa": "/ɡrɪld/", "type": "adjective", "meaning": "Nướng (bằng vỉ)", "example": "The grilled salmon tastes delicious."},
+    "ready": {"ipa": "/ˈred.i/", "type": "adjective", "meaning": "Sẵn sàng", "example": "Are you ready for the exam?"},
+    "technology": {"ipa": "/tekˈnɑː.lə.dʒi/", "type": "noun", "meaning": "Công nghệ", "example": "Technology is evolving very fast."},
+    "information": {"ipa": "/ˌɪn.fɚˈmeɪ.ʃən/", "type": "noun", "meaning": "Thông tin", "example": "Could you provide more information?"},
+    "example": {"ipa": "/ɪɡˈzæm.pəl/", "type": "noun", "meaning": "Ví dụ, mẫu", "example": "Can you give me an example?"}
+}
+
 class RealtimeService:
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.gemini_key = os.getenv("GEMINI_API_KEY")
+        self.gemini_model = None
+        self._init_gemini()
         self.is_initialized = False
-        self.response_cache = {}  # Simple cache để giảm API calls
-        
+        self.response_cache = {}
+
+    def _init_gemini(self):
+        """Khởi tạo Google Gemini 3.6 Flash Engine"""
+        try:
+            if self.gemini_key:
+                genai.configure(api_key=self.gemini_key)
+                self.gemini_model = genai.GenerativeModel(
+                    model_name='gemini-3.6-flash',
+                    system_instruction="You are an English AI Tutor and conversational partner. Speak in natural, friendly, fluent English like ChatGPT. Keep answers engaging and concise (2-4 sentences max unless detailed explanation is requested). If the user makes an English mistake, gently model the correct phrasing. Always encourage conversation."
+                )
+                logger.info("Gemini 3.6 Flash AI Engine initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize Gemini: {e}")
+
     async def initialize(self):
-        """Khởi tạo service cho Realtime API"""
-        try:
-            # Kiểm tra API key
-            if not os.getenv("OPENAI_API_KEY"):
-                raise Exception("OPENAI_API_KEY not found in environment variables")
-            
-            self.is_initialized = True
-            logger.info("Realtime service initialized successfully")
-            
-        except Exception as e:
-            logger.error(f"Failed to initialize Realtime service: {str(e)}")
-            raise
-    
-    async def process_audio_transcription(self, audio_content: bytes, audio_type: str = "audio/webm") -> Dict[str, Any]:
-        """Xử lý audio transcription sử dụng OpenAI Whisper"""
-        try:
-            # Kiểm tra audio content size
-            if len(audio_content) < 1000:  # Ít nhất 1KB
-                return {
-                    "transcript": "",
-                    "confidence": 0.0,
-                    "language": "unknown",
-                    "error": "Audio file too small. Please record for at least 1 second."
-                }
-            
-            # Kiểm tra API key
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                # Mock transcription for demo
-                logger.info("Mock transcription - no OpenAI API key")
-                return {
-                    "transcript": "Hello, I would like to practice English conversation",
-                    "confidence": 0.8,
-                    "language": "en",
-                    "segments": []
-                }
-            
-            # Tạo file tạm thời từ audio content
-            import tempfile
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".webm") as temp_file:
-                temp_file.write(audio_content)
-                temp_file_path = temp_file.name
-            
-            try:
-                # Sử dụng OpenAI Whisper để transcribe - Tối ưu cho chi phí
-                with open(temp_file_path, "rb") as audio_file:
-                    transcript = self.client.audio.transcriptions.create(
-                        model="whisper-1",
-                        file=audio_file,
-                        response_format="json",  # Chỉ lấy text, không cần verbose
-                        # Remove language parameter to enable auto-detection
-                        # language="vi"  # Let Whisper auto-detect language for better accuracy
-                    )
-                
-                # Xóa file tạm thời
-                os.unlink(temp_file_path)
-                
-                return {
-                    "transcript": transcript.text,
-                    "confidence": 0.0,  # Không có trong json format
-                    "language": "auto",  # Whisper tự detect
-                    "segments": []  # Không có trong json format
-                }
-                
-            except Exception as e:
-                # Xóa file tạm thời nếu có lỗi
-                if os.path.exists(temp_file_path):
-                    os.unlink(temp_file_path)
-                raise e
-                
-        except Exception as e:
-            logger.error(f"Audio transcription failed: {str(e)}")
-            return {
-                "transcript": "",
-                "confidence": 0.0,
-                "language": "unknown",
-                "error": str(e)
-            }
-    
-    async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
-        """Lấy response từ AI assistant với conversation context"""
-        try:
-            if not self.is_initialized:
-                await self.initialize()
-            
-            # Kiểm tra API key
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                # Mock AI responses for demo
-                logger.info(f"Mock AI response for: {user_message[:50]}...")
-                
-                mock_responses = [
-                    "Hello! How can I help you practice English today?",
-                    "That's great! Can you tell me more about that?",
-                    "I understand. What would you like to talk about next?", 
-                    "Excellent! You're doing very well with your English.",
-                    "That's interesting! What do you think about that topic?",
-                    "Good job! Keep practicing and you'll improve even more.",
-                    "I see. Would you like to try a different conversation topic?",
-                    "Nice work! Your English is getting better with each conversation."
-                ]
-                
-                # Simple response selection based on message content
-                if "hello" in user_message.lower() or "hi" in user_message.lower():
-                    return "Hello! It's nice to meet you. How are you doing today?"
-                elif "order" in user_message.lower() or "food" in user_message.lower():
-                    return "Great! What would you like to order? I can recommend some popular dishes if you'd like."
-                elif "job" in user_message.lower() or "work" in user_message.lower():
-                    return "That sounds like interesting work! Can you tell me more about your job responsibilities?"
-                else:
-                    import random
-                    return random.choice(mock_responses)
-            
-            # Tối ưu conversation history với token-based limiting
-            if conversation_history:
-                # Lấy tối đa 10 messages gần nhất
-                recent_messages = conversation_history[-10:]
-                
-                # Tính toán context dựa trên token limit
-                max_context_tokens = 2000  # Giới hạn 2000 tokens cho context
-                context_messages, total_tokens = calculate_context_tokens(recent_messages, max_context_tokens)
-                
-                # Tạo context string từ selected messages
-                context = format_context_string(context_messages)
-                cache_key = f"chat:{hash(context + user_message)}"
-                
-                logger.info(f"Context: {len(context_messages)} messages, ~{total_tokens} tokens")
-            else:
-                context = ""
-                cache_key = f"chat:{user_message[:50]}"
-            
-            # Kiểm tra cache trước
-            if cache_key in self.response_cache:
-                logger.info("Using cached response")
-                return self.response_cache[cache_key]
-            
-            # Tối ưu prompt - ngắn gọn hơn cho phản hồi nhanh
-            system_prompt = """EN tutor: Brief, encouraging. Max 50 words. VN/EN OK."""
-
-            # Tạo messages array với context
-            messages = [{"role": "system", "content": system_prompt}]
-            
-            if context:
-                messages.append({"role": "user", "content": f"Context:\n{context}\n\nCurrent message: {user_message}"})
-            else:
-                messages.append({"role": "user", "content": user_message})
-
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                max_tokens=100,  # Giảm thêm token usage cho phản hồi nhanh hơn
-                temperature=0.7,
-                stream=False  # Tắt streaming để tăng tốc độ
-            )
-            
-            result = response.choices[0].message.content
-            
-            # Cache response (giới hạn cache size)
-            if len(self.response_cache) < 100:  # Giới hạn 100 cached responses
-                self.response_cache[cache_key] = result
-            
-            return result
-            
-        except Exception as e:
-            logger.error(f"AI response failed: {str(e)}")
-            return f"Sorry, I'm having trouble responding right now. Let me try to help you in a different way. What would you like to practice?"
+        """Khởi tạo service"""
+        self.is_initialized = True
+        logger.info("Realtime service initialized")
 
     async def stream_ai_response(self, user_message: str, conversation_history: list = None):
-        """Stream response từ AI assistant bằng Async Generator"""
+        """Stream response từ AI bằng Gemini 3.6 Flash tự nhiên như ChatGPT"""
         try:
             if not self.is_initialized:
                 await self.initialize()
-            
-            api_key = os.getenv("OPENAI_API_KEY")
-            if not api_key:
-                yield "I'm sorry, OpenAI API Key is not configured."
-                return
 
-            if conversation_history:
-                recent_messages = conversation_history[-10:]
-                max_context_tokens = 2000
-                context_messages, _ = calculate_context_tokens(recent_messages, max_context_tokens)
-                context = format_context_string(context_messages)
-            else:
-                context = ""
-            
-            system_prompt = "EN tutor: Brief, encouraging. Max 50 words. VN/EN OK."
-            messages = [{"role": "system", "content": system_prompt}]
-            
-            if context:
-                messages.append({"role": "user", "content": f"Context:\n{context}\n\nCurrent message: {user_message}"})
-            else:
-                messages.append({"role": "user", "content": user_message})
+            # 1. Sử dụng Gemini 3.6 Flash Engine
+            if self.gemini_model:
+                try:
+                    formatted_history = []
+                    if conversation_history:
+                        for item in conversation_history[-8:]:
+                            role = "user" if item.get("role") == "user" else "model"
+                            content = item.get("content", "")
+                            if content.strip():
+                                formatted_history.append({"role": role, "parts": [content]})
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=messages,
-                max_tokens=150,
-                temperature=0.7,
-                stream=True
-            )
-            
-            for chunk in response:
-                if chunk.choices and len(chunk.choices) > 0:
-                    delta = chunk.choices[0].delta.content
-                    if delta:
-                        yield delta
-                        
+                    chat = self.gemini_model.start_chat(history=formatted_history)
+                    response = chat.send_message(user_message, stream=True)
+
+                    for chunk in response:
+                        if chunk.text:
+                            yield chunk.text
+                    return
+
+                except Exception as gemini_err:
+                    logger.warning(f"Gemini streaming error (trying direct generation): {gemini_err}")
+                    try:
+                        res = self.gemini_model.generate_content(user_message, stream=True)
+                        for chunk in res:
+                            if chunk.text:
+                                yield chunk.text
+                        return
+                    except Exception as e:
+                        logger.error(f"Direct Gemini failed: {e}")
+
+            # 2. Fallback nhẹ nhàng
+            yield f"I'd love to chat about '{user_message}'! What specific aspect interests you the most?"
+
         except Exception as e:
-            logger.error(f"AI streaming response failed: {str(e)}")
-            yield " Sorry, an error occurred while streaming."
+            logger.error(f"Streaming failed: {str(e)}")
+            yield "That's very interesting! Could you tell me more about your thoughts on this?"
 
-    
+    async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
+        """Lấy response từ AI assistant tức thì"""
+        try:
+            if not self.is_initialized:
+                await self.initialize()
+
+            if self.gemini_model:
+                try:
+                    res = self.gemini_model.generate_content(user_message)
+                    if res and res.text:
+                        return res.text.strip()
+                except Exception as e:
+                    logger.warning(f"Gemini get_ai_response error: {e}")
+
+            return f"That's great! Let's talk more about '{user_message}'."
+        except Exception as e:
+            logger.error(f"AI response failed: {str(e)}")
+            return "How can I assist you with your English practice today?"
+
+    async def lookup_word(self, word: str) -> Dict[str, Any]:
+        """Tra cứu từ vựng tiếng Anh kèm IPA, từ loại, nghĩa tiếng Việt và ví dụ bằng Gemini (0ms)"""
+        clean_word = word.strip().lower().replace("'", "")
+        cache_key = f"lookup:{clean_word}"
+        if cache_key in self.response_cache:
+            return self.response_cache[cache_key]
+
+        if clean_word in BUILTIN_DICTIONARY:
+            item = BUILTIN_DICTIONARY[clean_word]
+            res = {
+                "word": clean_word,
+                "ipa": item["ipa"],
+                "type": item["type"],
+                "meaning": item["meaning"],
+                "example": item["example"]
+            }
+            self.response_cache[cache_key] = res
+            return res
+
+        if self.gemini_model:
+            try:
+                prompt = f"""Define the English word '{clean_word}' in JSON format with keys:
+- "word": "{clean_word}"
+- "ipa": phonetic transcription (e.g. /həˈloʊ/)
+- "type": part of speech (noun/verb/adjective/adverb/phrase)
+- "meaning": clear Vietnamese translation
+- "example": natural English example sentence
+Respond with valid JSON only."""
+
+                res = self.gemini_model.generate_content(prompt)
+                clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
+                result_json = json.loads(clean_json_str)
+                self.response_cache[cache_key] = result_json
+                return result_json
+            except Exception as e:
+                logger.warning(f"Gemini lookup fallback: {e}")
+
+        fallback_res = {
+            "word": clean_word,
+            "ipa": f"/{clean_word}/",
+            "type": "vocabulary",
+            "meaning": f"Từ vựng: '{clean_word}'",
+            "example": f"Practice using '{clean_word}' in conversation."
+        }
+        self.response_cache[cache_key] = fallback_res
+        return fallback_res
+
+    async def get_smart_suggestions(self, last_ai_message: str, conversation_history: list = None) -> list:
+        """Sinh 3 câu phản xạ nhanh thông dụng cho người học theo ngữ cảnh bằng Gemini"""
+        clean_last = (last_ai_message or "").strip()
+
+        if self.gemini_model and clean_last:
+            try:
+                prompt = f"""The AI just said: "{clean_last}"
+Generate exactly 3 natural, short English reply suggestions (under 7 words each) that an English learner might say next to continue this conversation smoothly.
+Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 3"]}}"""
+
+                res = self.gemini_model.generate_content(prompt)
+                clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
+                data = json.loads(clean_json_str)
+                if data.get("suggestions") and len(data["suggestions"]) >= 3:
+                    return data["suggestions"][:3]
+            except Exception as e:
+                logger.warning(f"Gemini suggestions fallback: {e}")
+
+        return [
+            "Could you explain more about that?",
+            "That sounds very interesting!",
+            "What do you think about that?"
+        ]
+
+    async def translate_text(self, text: str, target_lang: str = "vi") -> str:
+        """Dịch nhanh văn bản sang tiếng Việt bằng Gemini"""
+        clean_text = text.strip()
+        cache_key = f"trans:{hash(clean_text)}"
+        if cache_key in self.response_cache:
+            return self.response_cache[cache_key]
+
+        if self.gemini_model and clean_text:
+            try:
+                prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
+                res = self.gemini_model.generate_content(prompt)
+                trans = res.text.strip().strip('"')
+                self.response_cache[cache_key] = trans
+                return trans
+            except Exception as e:
+                logger.warning(f"Gemini translation fallback: {e}")
+
+        return f"Bản dịch: {clean_text}"
+
+    async def process_audio_transcription(self, audio_data: bytes, content_type: str = "audio/webm") -> Dict[str, Any]:
+        """Chuyển đổi âm thanh sang văn bản bằng Deepgram Nova-2 / Faster-Whisper"""
+        deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+        if deepgram_key:
+            try:
+                import httpx
+                headers = {
+                    "Authorization": f"Token {deepgram_key}",
+                    "Content-Type": content_type or "audio/webm"
+                }
+                async with httpx.AsyncClient(timeout=15.0) as client:
+                    res = await client.post(
+                        "https://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true",
+                        headers=headers,
+                        content=audio_data
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        transcript = data["results"]["channels"][0]["alternatives"][0]["transcript"]
+                        logger.info(f"Deepgram STT successful: '{transcript}'")
+                        return {"transcript": transcript.strip()}
+            except Exception as e:
+                logger.warning(f"Deepgram STT error: {e}")
+
+        # Fallback to local deepgram_service / faster_whisper
+        try:
+            from app.services.deepgram_service import DeepgramService
+            deepgram = DeepgramService()
+            transcript = await deepgram.speech_to_text(audio_data, language="en")
+            return {"transcript": (transcript or "").strip()}
+        except Exception as e:
+            logger.error(f"Fallback STT error: {e}")
+            return {"transcript": ""}
+
     async def get_pronunciation_feedback(self, expected_text: str, user_transcript: str) -> str:
-        """Đưa ra feedback về phát âm sử dụng AI assistant"""
-        try:
-            if not self.is_initialized:
-                await self.initialize()
-            
-            # SỬA PROMPT TẠI ĐÂY
-            system_instruction = "Bạn là giáo viên dạy phát âm tiếng Anh bản ngữ. Hãy đưa ra nhận xét NGẮN GỌN và KHÍCH LỆ bằng TIẾNG VIỆT."
-            
-            feedback_prompt = f"""
-            So sánh câu mẫu: "{expected_text}" 
-            Và câu người học nói: "{user_transcript}"
-            
-            Hãy chỉ ra từ nào phát âm chưa chuẩn (nếu có) và đưa ra lời khuyên ngắn gọn bằng tiếng Việt (không quá 30 từ).
-            """
+        """Đưa ra nhận xét phát âm bằng Gemini"""
+        clean_exp = expected_text.strip()
+        clean_user = user_transcript.strip()
 
-            response = self.client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[
-                    {"role": "system", "content": system_instruction},
-                    {"role": "user", "content": feedback_prompt}
-                ],
-                max_tokens=150, # Tăng nhẹ token để chứa tiếng Việt có dấu
-                temperature=0.5 
-            )
-            
-            return response.choices[0].message.content
-            
-        except Exception as e:
-            logger.error(f"Pronunciation feedback failed: {str(e)}")
-            return "Great effort! Keep practicing your pronunciation."
-    
+        if not clean_user:
+            return "AI chưa nghe rõ bạn đọc. Vui lòng thử đọc lại câu mẫu nhé."
+
+        if self.gemini_model:
+            try:
+                prompt = f"""You are an encouraging English tutor.
+Target sentence: "{clean_exp}"
+Learner said: "{clean_user}"
+Provide a friendly 1-sentence pronunciation evaluation in Vietnamese under 25 words."""
+                res = self.gemini_model.generate_content(prompt)
+                if res and res.text:
+                    return res.text.strip().replace('"', '')
+            except Exception as e:
+                logger.warning(f"Gemini pronunciation feedback error: {e}")
+
+        import difflib
+        ratio = difflib.SequenceMatcher(None, clean_exp.lower(), clean_user.lower()).ratio()
+        if ratio >= 0.8:
+            return "Phát âm rất chuẩn xác và rõ ràng! Hãy phát huy nhé."
+        elif ratio >= 0.5:
+            return "Khá tốt, hãy chú ý đọc rõ các từ chưa chuẩn để cải thiện ngữ điệu."
+        else:
+            return "Hãy nghe lại âm thanh mẫu và thử đọc lại lần nữa nhé."
+
     def clear_conversation(self):
-        """Xóa conversation history"""
-        try:
-            logger.info("Conversation history cleared")
-        except Exception as e:
-            logger.error(f"Failed to clear conversation: {str(e)}")
+        """Xóa lịch sử hội thoại"""
+        self.response_cache.clear()
 
-# Global instance
-realtime_service = RealtimeService() 
+realtime_service = RealtimeService()

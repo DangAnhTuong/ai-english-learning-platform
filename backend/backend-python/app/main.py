@@ -58,7 +58,7 @@ async def shutdown_event():
         logger.error(f"Failed to disconnect from database: {e}")
 
 # CORS Configuration - Development ready
-ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080,http://localhost:3001").split(",")
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3005,http://127.0.0.1:3000,http://127.0.0.1:3005,http://localhost:5173,http://localhost:5174,http://localhost:5175,http://localhost:8080,http://localhost:3001").split(",")
 ALLOWED_ORIGINS = [origin.strip() for origin in ALLOWED_ORIGINS if origin.strip()]
 
 # Add wildcard for development

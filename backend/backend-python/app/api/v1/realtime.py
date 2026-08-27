@@ -145,13 +145,13 @@ async def pronunciation_feedback_real(
         user_transcript = stt_result.get("transcript", "")
 
         if not user_transcript:
-            return {"score": 0, "feedback": "AI không nghe thấy gì cả!"}
+            return {"score": 0, "transcript": "", "feedback": "AI chưa nghe rõ bạn đọc. Vui lòng thử lại!"}
 
         # Nhận xét từ GPT
         feedback_text = await realtime_service.get_pronunciation_feedback(text, user_transcript)
 
         # Tính điểm thật bằng difflib
-        matcher = difflib.SequenceMatcher(None, text.lower(), user_transcript.lower())
+        matcher = difflib.SequenceMatcher(None, text.lower().strip(), user_transcript.lower().strip())
         score = int(matcher.ratio() * 100)
 
         return {
@@ -160,7 +160,7 @@ async def pronunciation_feedback_real(
             "feedback": feedback_text
         }
     except Exception as e:
-        print(f"Lỗi: {str(e)}")
+        logger.error(f"Pronunciation feedback error: {str(e)}")
         return JSONResponse(status_code=500, content={"error": str(e)})
     
     
@@ -183,6 +183,45 @@ async def clear_conversation():
     except Exception as e:
         print(f"Clear conversation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Clear conversation failed: {str(e)}")
+
+@router.post("/lookup")
+async def lookup_word_endpoint(request: Dict[str, Any]):
+    """Tra cứu nhanh từ vựng tiếng Anh kèm IPA, nghĩa tiếng Việt, loại từ"""
+    try:
+        word = request.get("word", "")
+        if not word or not word.strip():
+            raise HTTPException(status_code=400, detail="Word is required")
+        result = await realtime_service.lookup_word(word)
+        return result
+    except Exception as e:
+        print(f"Lookup error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Lookup failed: {str(e)}")
+
+@router.post("/suggestions")
+async def suggestions_endpoint(request: Dict[str, Any]):
+    """Gợi ý 3 câu phản xạ nhanh theo ngữ cảnh tin nhắn AI gần nhất"""
+    try:
+        last_message = request.get("last_ai_message", "")
+        history = request.get("conversation_history", [])
+        suggestions = await realtime_service.get_smart_suggestions(last_message, history)
+        return {"suggestions": suggestions}
+    except Exception as e:
+        print(f"Suggestions error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Suggestions failed: {str(e)}")
+
+@router.post("/translate")
+async def translate_endpoint(request: Dict[str, Any]):
+    """Dịch nhanh văn bản sang tiếng Việt"""
+    try:
+        text = request.get("text", "")
+        target_lang = request.get("target_lang", "vi")
+        if not text or not text.strip():
+            raise HTTPException(status_code=400, detail="Text is required")
+        translation = await realtime_service.translate_text(text, target_lang)
+        return {"translation": translation}
+    except Exception as e:
+        print(f"Translate error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Translate failed: {str(e)}")
 
 @router.get("/health")
 async def health_check():

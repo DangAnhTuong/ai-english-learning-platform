@@ -369,6 +369,19 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.04);
 }
 
+.clickable-vocab-word {
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-bottom: 1px dotted transparent;
+}
+
+.clickable-vocab-word:hover {
+    background-color: rgba(22, 119, 255, 0.12);
+    color: #0958d9;
+    border-bottom: 1px dotted #1677ff;
+    border-radius: 2px;
+}
+
 .line-audio-controls {
     display: flex;
     align-items: center;

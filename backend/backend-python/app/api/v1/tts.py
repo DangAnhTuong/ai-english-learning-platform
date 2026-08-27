@@ -10,12 +10,9 @@ router = APIRouter()
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Khởi tạo OpenAI client
-openai_api_key = os.getenv("OPENAI_API_KEY")
-if not openai_api_key:
-    raise ValueError("OPENAI_API_KEY not found in environment variables")
-
-client = OpenAI(api_key=openai_api_key)
+def get_client():
+    api_key = os.getenv("OPENAI_API_KEY") or "placeholder"
+    return OpenAI(api_key=api_key)
 
 class TTSRequest(BaseModel):
     text: str
@@ -74,6 +71,7 @@ async def generate_speech(request: TTSRequest):
         if request.language == "vi" or any(char in request.text for char in "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ"):
             instructions = "Speak in Vietnamese with proper pronunciation and tone marks."
         
+        client = get_client()
         response = client.audio.speech.create(
             model=request.model,
             voice=request.voice,
@@ -111,6 +109,7 @@ async def stream_speech(request: TTSRequest):
             instructions = "Speak in Vietnamese with proper pronunciation and tone marks."
         
         # Gọi OpenAI TTS API với streaming
+        client = get_client()
         response = client.audio.speech.create(
             model=request.model,
             voice=request.voice,

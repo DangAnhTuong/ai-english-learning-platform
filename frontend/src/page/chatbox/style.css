@@ -241,6 +241,120 @@
     40% { transform: scale(1); opacity: 1; }
 }
 
+/* Message Bubble Wrapper */
+.bubble-wrapper {
+    display: flex;
+    flex-direction: column;
+    max-width: 100%;
+}
+
+/* Interactive Vocabulary Words */
+.clickable-vocab-word {
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border-bottom: 1px dotted transparent;
+}
+
+.clickable-vocab-word:hover {
+    background-color: rgba(22, 119, 255, 0.12);
+    color: #0958d9;
+    border-bottom: 1px dotted #1677ff;
+    border-radius: 2px;
+}
+
+.message-item.user .clickable-vocab-word:hover {
+    background-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+    border-bottom: 1px dotted #ffffff;
+}
+
+/* Suggestion Chips Hover */
+.suggestion-chip:hover {
+    background: #e6f4ff !important;
+    border-color: #1677ff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(22, 119, 255, 0.15) !important;
+}
+
+/* Speed Badge */
+/* ChatGPT Voice Mode Orb & Waveform Styles */
+.handsfree-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    margin: 0 16px 8px;
+    background: linear-gradient(135deg, rgba(110, 59, 255, 0.08) 0%, rgba(0, 117, 243, 0.08) 100%);
+    border: 1px solid rgba(110, 59, 255, 0.2);
+    border-radius: 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+.handsfree-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.voice-orb {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #6E3BFF 0%, #0075F3 100%);
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(110, 59, 255, 0.5);
+}
+
+.voice-orb.listening {
+    animation: orbPulse 1.4s infinite ease-in-out;
+}
+
+.voice-orb.speaking {
+    animation: orbGlow 0.8s infinite alternate ease-in-out;
+}
+
+@keyframes orbPulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(110, 59, 255, 0.7); }
+    70% { transform: scale(1.15); box-shadow: 0 0 0 12px rgba(110, 59, 255, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(110, 59, 255, 0); }
+}
+
+@keyframes orbGlow {
+    0% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 10px #0075F3; }
+    100% { transform: scale(1.12); filter: brightness(1.3); box-shadow: 0 0 22px #6E3BFF; }
+}
+
+.soundwave-bars {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 16px;
+}
+
+.soundwave-bars span {
+    width: 3px;
+    height: 100%;
+    background: #6E3BFF;
+    border-radius: 2px;
+    animation: soundWave 0.6s infinite ease-in-out alternate;
+}
+
+.soundwave-bars span:nth-child(2) { animation-delay: 0.15s; height: 70%; }
+.soundwave-bars span:nth-child(3) { animation-delay: 0.3s; height: 40%; }
+.soundwave-bars span:nth-child(4) { animation-delay: 0.45s; height: 85%; }
+
+@keyframes soundWave {
+    0% { transform: scaleY(0.3); }
+    100% { transform: scaleY(1.2); }
+}    
+.speed-badge {
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .chatbox-page {
@@ -254,12 +368,12 @@
         box-shadow: none;
     }
     .messages-area {
-        padding: 20px 15px;
+        padding: 16px 12px;
     }
     .message-item {
-        max-width: 90%;
+        max-width: 92%;
     }
     .input-area {
-        padding: 15px;
+        padding: 12px 14px;
     }
 }

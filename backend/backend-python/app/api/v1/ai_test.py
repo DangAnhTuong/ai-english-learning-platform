@@ -7,7 +7,12 @@ import tempfile
 from openai import OpenAI
 
 router = APIRouter()
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def get_client():
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise HTTPException(status_code=500, detail="OPENAI_API_KEY is not configured")
+    return OpenAI(api_key=api_key)
 
 @router.post("/evaluate")
 async def evaluate_speaking_test(audios: List[UploadFile] = File(...)):
@@ -18,6 +23,7 @@ async def evaluate_speaking_test(audios: List[UploadFile] = File(...)):
 
         full_transcript = ""
         total_spoken_words = 0 # Biến đếm số chữ thực tế thí sinh đã nói
+        client = get_client()
         
         # 1. Bóc băng (Transcribe) từng phần một và ghép lại
         for index, audio in enumerate(audios):

@@ -1,33 +1,50 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
-
-# dependencies
-/node_modules
-/.pnp
+# Dependencies
+node_modules/
+*/node_modules/
+frontend/node_modules/
+backend/backend-node/node_modules/
+.pnp
 .pnp.js
 
-# testing
-/coverage
+# Python Cache & Virtual Environments
+__pycache__/
+*/__pycache__/
+*/*/__pycache__/
+*/*/*/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+ENV/
 
-# production
-/build
+# Production builds
+build/
+dist/
+frontend/build/
 
-# misc
-.DS_Store
+# Environment Variables (Protect secrets)
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+!.env.example
+*.env
+backend/backend-node/.env
+backend/backend-python/.env
+frontend/.env
 
+# Temporary logs & debug files
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-
-# AI context & temporary files
-.ai/
 logs.txt
 logs2.txt
-test_ws.js
 tree.txt
-DEPLOYMENT_LESSONS.md
-*.log
+test_ws.js
+
+# OS files
+.DS_Store
+Thumbs.db

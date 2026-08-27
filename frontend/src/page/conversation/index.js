@@ -14,6 +14,7 @@ import {
 import { useSelector } from 'react-redux';
 import { useConversation } from '../../hooks/useConversation';
 import { conversationService } from '../../services/conversationService';
+import WordLookupPopover from '../../components/WordLookupPopover';
 import './style.css';
 import levenshtein from 'fast-levenshtein';
 
@@ -47,6 +48,11 @@ const TOPIC_UI_CONFIG = {
     'work': { icon: '💼', color: '#607D8B' },
     'daily_life': { icon: '🏠', color: '#795548' },
     'school': { icon: '📚', color: '#FF9800' },
+    'airport': { icon: '🛫', color: '#3498DB' },
+    'hotel': { icon: '🏨', color: '#E67E22' },
+    'coffee_shop': { icon: '☕', color: '#8D6E63' },
+    'workplace': { icon: '💼', color: '#455A64' },
+    'banking': { icon: '🏦', color: '#00897B' },
 };
 
 // Default config cho topic không có trong UI config
@@ -250,7 +256,8 @@ function Conversation() {
     // Handle start real-time conversation (WebSocket mode)
     const handleStartRealtimeConversation = async (scenarioId) => {
         if (!isConnected) {
-            message.warning('Đang kết nối với server...');
+            connectWebSocket();
+            message.info('Đang kết nối với AI Server, vui lòng bấm lại sau 1 giây...');
             return;
         }
 
@@ -436,17 +443,50 @@ function Conversation() {
         }
         if (audioRef.current) audioRef.current.pause();
 
-        const playWithTTS = async () => {
+        const playWithTTS = () => {
             const textToRead = line.content || line.message || line.text;
-            const blob = await chatService.generateTTS(textToRead, index % 2 === 0 ? 'shimmer' : 'echo');
-            if (blob) {
-                const url = URL.createObjectURL(blob);
-                const audio = new Audio(url);
-                setupAudioEvents(audio, index);
-                await audio.play();
+            if (!textToRead) return;
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(textToRead);
+                utterance.lang = 'en-US';
+                utterance.rate = playbackSpeed;
+                utterance.pitch = index % 2 === 0 ? 1.05 : 0.95;
+
+                // Select high quality voice if available
+                const voices = window.speechSynthesis.getVoices();
+                const enVoices = voices.filter(v => v.lang.startsWith('en'));
+                if (enVoices.length > 0) {
+                    if (index % 2 === 0) {
+                        const femaleVoice = enVoices.find(v => /female|zira|samantha|victoria|karen|susan|google us english/i.test(v.name));
+                        if (femaleVoice) utterance.voice = femaleVoice;
+                    } else {
+                        const maleVoice = enVoices.find(v => /male|david|daniel|george|alex/i.test(v.name));
+                        if (maleVoice) utterance.voice = maleVoice;
+                    }
+                }
+
+                utterance.onend = () => {
+                    setPlayingAudioIndex(null);
+                    setCurrentAudioProgress(0);
+                    if (isPlayingAllRef.current && playAllQueueRef.current.length > 0) {
+                        const nextIndex = playAllQueueRef.current.shift();
+                        const allLines = selectedConversation.sample_conversation || selectedConversation.lines || [];
+                        handlePlayLineAudio(allLines[nextIndex], nextIndex);
+                    } else if (isPlayingAllRef.current) {
+                        setIsPlayingAll(false);
+                        isPlayingAllRef.current = false;
+                    }
+                };
+                utterance.onerror = () => {
+                    setPlayingAudioIndex(null);
+                    setCurrentAudioProgress(0);
+                };
                 setPlayingAudioIndex(index);
+                window.speechSynthesis.speak(utterance);
             } else {
-                message.error('Máy chủ AI cũng không thể tạo âm thanh!');
+                message.error('Trình duyệt không hỗ trợ phát âm thanh!');
             }
         };
 
@@ -457,7 +497,14 @@ function Conversation() {
             audio.onended = () => {
                 setPlayingAudioIndex(null);
                 setCurrentAudioProgress(0);
-                // Logic Play All tiếp tục ở đây...
+                if (isPlayingAllRef.current && playAllQueueRef.current.length > 0) {
+                    const nextIndex = playAllQueueRef.current.shift();
+                    const allLines = selectedConversation.sample_conversation || selectedConversation.lines || [];
+                    handlePlayLineAudio(allLines[nextIndex], nextIndex);
+                } else if (isPlayingAllRef.current) {
+                    setIsPlayingAll(false);
+                    isPlayingAllRef.current = false;
+                }
             };
         };
 
@@ -492,10 +539,8 @@ function Conversation() {
         if (!selectedConversation) return;
 
         const lines = selectedConversation.sample_conversation || selectedConversation.lines || [];
-        const linesWithAudio = lines.filter((line, idx) => line.audioUrl || line.audio_url);
-
-        if (linesWithAudio.length === 0) {
-            message.warning('Hội thoại này chưa có audio');
+        if (lines.length === 0) {
+            message.warning('Hội thoại này chưa có nội dung');
             return;
         }
 
@@ -503,11 +548,12 @@ function Conversation() {
         if (audioRef.current) {
             audioRef.current.pause();
         }
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
 
-        // Build queue of indices
-        playAllQueueRef.current = lines
-            .map((line, idx) => (line.audioUrl || line.audio_url) ? idx : -1)
-            .filter(idx => idx !== -1);
+        // Build queue of all indices
+        playAllQueueRef.current = lines.map((_, idx) => idx);
 
         isPlayingAllRef.current = true;
         setIsPlayingAll(true);
@@ -639,8 +685,7 @@ function Conversation() {
                     )}
 
                     {/* Audio Controls */}
-                    {hasAnyAudio && (
-                        <div className="audio-controls">
+                    <div className="audio-controls">
                             <Space size="middle">
 
                                 <Button
@@ -688,7 +733,6 @@ function Conversation() {
                                 </div>
                             </Space>
                         </div>
-                    )}
 
                     {/* Participants */}
                     {selectedConversation.participants && selectedConversation.participants.length > 0 && (
@@ -748,32 +792,32 @@ function Conversation() {
         ? 'none' 
         : 'auto' // Chống bôi đen copy
 }}>
-    {content}
+    <WordLookupPopover text={content} />
 </div>
 
                                             {/* Audio controls for this line */}
                                             <div className="line-audio-controls">
-                                                {hasAudio ? (
-                                                    <Space>
-                                                        <Tooltip title={isPlaying ? "Tạm dừng" : "Nghe"}>
-                                                            <Button
-                                                                type={isPlaying ? "primary" : "default"}
-                                                                shape="circle"
-                                                                size="small"
-                                                                icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
-                                                                onClick={() => handlePlayLineAudio(line, index)}
-                                                            />
-                                                        </Tooltip>
+                                                <Space>
+                                                    <Tooltip title={isPlaying ? "Tạm dừng" : "Nghe câu này"}>
+                                                        <Button
+                                                            type={isPlaying ? "primary" : "default"}
+                                                            shape="circle"
+                                                            size="small"
+                                                            icon={isPlaying ? <PauseCircleOutlined /> : <PlayCircleOutlined />}
+                                                            onClick={() => handlePlayLineAudio(line, index)}
+                                                        />
+                                                    </Tooltip>
 
-                                                        {isPlaying && (
-                                                            <Progress
-                                                                percent={currentAudioProgress}
-                                                                size="small"
-                                                                showInfo={false}
-                                                                style={{ width: 100 }}
-                                                            />
-                                                        )}
+                                                    {isPlaying && (
+                                                        <Progress
+                                                            percent={currentAudioProgress || 50}
+                                                            size="small"
+                                                            showInfo={false}
+                                                            style={{ width: 100 }}
+                                                        />
+                                                    )}
 
+                                                    {hasAudio && (
                                                         <Tooltip title="Tải xuống">
                                                             <Button
                                                                 type="text"
@@ -782,25 +826,21 @@ function Conversation() {
                                                                 onClick={() => handleDownloadAudio(line, index)}
                                                             />
                                                         </Tooltip>
+                                                    )}
 
-                                                        {isShadowingMode && shadowingIndex === index && (
-                                                            <Button
-                                                                type={shadowingMicActive ? "primary" : "default"}
-                                                                danger={shadowingMicActive}
-                                                                shape="round"
-                                                                size="small"
-                                                                icon={shadowingMicActive ? <StopOutlined /> : <AudioOutlined />}
-                                                                onClick={handleShadowingMic}
-                                                            >
-                                                                {shadowingMicActive ? "Dừng ghi âm" : "Bấm để đọc"}
-                                                            </Button>
-                                                        )}
-                                                    </Space>
-                                                ) : (
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                                        <AudioOutlined style={{ opacity: 0.3 }} /> Chưa có audio
-                                                    </Text>
-                                                )}
+                                                    {isShadowingMode && shadowingIndex === index && (
+                                                        <Button
+                                                            type={shadowingMicActive ? "primary" : "default"}
+                                                            danger={shadowingMicActive}
+                                                            shape="round"
+                                                            size="small"
+                                                            icon={shadowingMicActive ? <StopOutlined /> : <AudioOutlined />}
+                                                            onClick={handleShadowingMic}
+                                                        >
+                                                            {shadowingMicActive ? "Dừng ghi âm" : "Bấm để đọc"}
+                                                        </Button>
+                                                    )}
+                                                </Space>
                                             </div>
                                         </div>
                                     </div>

@@ -30,6 +30,7 @@ export const useConversation = () => {
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
     const connectionIdRef = useRef(null);
+    const pingIntervalRef = useRef(null);
 
     /**
      * Tạo connection ID duy nhất
@@ -38,12 +39,18 @@ export const useConversation = () => {
         return `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     };
 
+    const reconnectTimerRef = useRef(null);
+    const reconnectAttemptsRef = useRef(0);
+    const maxReconnectAttempts = 5;
+
     /**
-     * Kết nối WebSocket
+     * Kết nối WebSocket với cơ chế tự động kết nối lại thông minh
      */
     const connectWebSocket = useCallback(() => {
-        if (!user?.id) {
-            message.error('Vui lòng đăng nhập để sử dụng tính năng này');
+        if (!user?.id) return;
+
+        // Xóa connection cũ nếu đang mở
+        if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
             return;
         }
 
@@ -56,43 +63,65 @@ export const useConversation = () => {
 
             ws.onopen = () => {
                 setIsConnected(true);
-                console.log('WebSocket connected');
+                reconnectAttemptsRef.current = 0;
+                console.log('✅ WebSocket connected successfully');
+
+                // Heartbeat ping every 15s to keep connection alive
+                if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+                pingIntervalRef.current = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        try {
+                            ws.send(JSON.stringify({ type: 'ping' }));
+                        } catch (e) {
+                            console.warn('Ping failed:', e);
+                        }
+                    }
+                }, 15000);
             };
 
             ws.onmessage = (event) => {
-    let data;
-    try {
-        // Cố gắng ép kiểu JSON
-        data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
-    } catch (error) {
-        // Nếu server gửi chữ bậy bạ không phải JSON, nó sẽ in ra đây thay vì làm sập web
-        console.error("Dữ liệu từ server không phải JSON hợp lệ. Chuỗi bị lỗi là:", event.data);
-        return; // Dừng luôn hàm, không chạy xuống dưới nữa
-    }
+                let data;
+                try {
+                    data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+                } catch (error) {
+                    return;
+                }
 
-    // Nếu parse thành công nhưng server có báo lỗi có chủ đích
-    if (data && data.error) {
-        console.error("Lỗi từ AI Server:", data.error);
-        return;
-    }
+                if (data && data.type === 'pong') {
+                    return; // Heartbeat pong response
+                }
 
-    // Nếu mọi thứ ngon lành thì mới gọi hàm xử lý tiếp theo
-    handleWebSocketMessage(data);
-};
+                if (data && data.error) {
+                    console.warn("Lỗi từ AI Server:", data.error);
+                    return;
+                }
+
+                handleWebSocketMessage(data);
+            };
 
             ws.onerror = (error) => {
-                console.error('WebSocket error:', error);
-                message.error('Lỗi kết nối WebSocket');
+                console.warn('WebSocket connection attempt failed, will retry in background...');
                 setIsConnected(false);
             };
 
             ws.onclose = () => {
-                console.log('WebSocket disconnected');
+                if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
                 setIsConnected(false);
+
+                // Tự động kết nối lại sau 2s, 4s, 8s nếu chưa vượt quá số lần tối đa
+                if (reconnectAttemptsRef.current < maxReconnectAttempts) {
+                    const delay = Math.min(1000 * Math.pow(2, reconnectAttemptsRef.current), 10000);
+                    reconnectAttemptsRef.current += 1;
+                    if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+                    reconnectTimerRef.current = setTimeout(() => {
+                        console.log(`🔄 Retrying WebSocket connection (Attempt ${reconnectAttemptsRef.current}/${maxReconnectAttempts})...`);
+                        connectWebSocket();
+                    }, delay);
+                }
             };
         } catch (error) {
-            console.error('Failed to connect WebSocket:', error);
-            message.error('Không thể kết nối với server');
+            console.warn('Failed to initialize WebSocket:', error);
+            setIsConnected(false);
         }
     }, [user]);
 
@@ -507,6 +536,12 @@ export const useConversation = () => {
      */
     useEffect(() => {
         return () => {
+            if (reconnectTimerRef.current) {
+                clearTimeout(reconnectTimerRef.current);
+            }
+            if (pingIntervalRef.current) {
+                clearInterval(pingIntervalRef.current);
+            }
             if (wsRef.current) {
                 wsRef.current.close();
             }
