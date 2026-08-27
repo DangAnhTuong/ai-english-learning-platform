@@ -1,4 +1,4 @@
-# 🎓 AI-Powered English Learning Platform
+    # 🎓 AI-Powered English Learning Platform
 
 [![Live Demo](https://img.shields.io/badge/Live%20Demo-danganhtuong.dev-brightgreen?style=for-the-badge&logo=nginx)](https://danganhtuong.dev)
 [![React 19](https://img.shields.io/badge/React-19.0.0-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
@@ -12,6 +12,10 @@ A modern, production-grade, multi-service AI web application designed for intera
 ---
 
 ## 🎬 Demo & Video Showcase
+
+
+https://github.com/user-attachments/assets/1b34ff79-bc72-484e-a57e-8df8a56ec321
+
 
 > 💡 *Dự án tích hợp đầy đủ tương tác thời gian thực (Microphone STT, Voice TTS chuẩn bản ngữ & Đàm thoại AI).*
 
