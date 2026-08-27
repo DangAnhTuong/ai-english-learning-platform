@@ -17,7 +17,9 @@ client = MongoClient(MONGO_URI)
 db = client["english-learning"]
 conversations_collection = db["conversations"]
 
-AUDIO_BASE_DIR = os.path.join(os.path.dirname(__file__), "conversation_audio")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+AUDIO_BASE_DIR = os.path.join(parent_dir, "conversation_audio") if os.path.basename(script_dir) == "scripts" else os.path.join(script_dir, "conversation_audio")
 os.makedirs(AUDIO_BASE_DIR, exist_ok=True)
 
 async def generate_audio_for_line(text: str, voice: str, output_path: str):

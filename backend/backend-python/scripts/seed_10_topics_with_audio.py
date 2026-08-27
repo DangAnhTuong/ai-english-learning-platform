@@ -25,7 +25,9 @@ users_collection = db["users"]
 admin_user = users_collection.find_one({"roles": "admin"})
 admin_id = admin_user["_id"] if admin_user else ObjectId("6a63a0a6820c4f88b36115f1")
 
-AUDIO_BASE_DIR = os.path.join(os.path.dirname(__file__), "conversation_audio")
+script_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(script_dir)
+AUDIO_BASE_DIR = os.path.join(parent_dir, "conversation_audio") if os.path.basename(script_dir) == "scripts" else os.path.join(script_dir, "conversation_audio")
 os.makedirs(AUDIO_BASE_DIR, exist_ok=True)
 
 TOPICS_DATA = [
