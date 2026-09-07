@@ -114,7 +114,16 @@ if (isDevelopment || !corsAllowlist || corsAllowlist === '*') {
         // Cho phép requests không có origin (mobile apps, Postman, etc.)
         if (!origin) return cb(null, true);
 
-        if (allowlist.length === 0 || allowlist.includes(origin)) {
+        const urlObj = new URL(origin);
+        const host = urlObj.hostname;
+
+        if (
+            allowlist.length === 0 ||
+            allowlist.includes(origin) ||
+            host.endsWith('.vercel.app') ||
+            host.endsWith('.danganhtuong.dev') ||
+            host === 'danganhtuong.dev'
+        ) {
             return cb(null, true);
         }
 
@@ -145,8 +154,8 @@ app.use('/uploads', express.static(path.join(publicDir, 'uploads')));
 // Initialize passport (only initialize, no session needed)
 app.use(passport.initialize());
 
-// Health check endpoint with MongoDB status
-app.get('/health', (_req, res) => {
+// Health check endpoint with MongoDB status (accessible at both /health and /api/v1/health)
+const handleHealthCheck = (_req, res) => {
     const mongoStatus = getMongoDBStatus();
     const isHealthy = mongoStatus.isConnected;
 
@@ -157,7 +166,10 @@ app.get('/health', (_req, res) => {
         mongodb: mongoStatus,
         timestamp: new Date().toISOString()
     });
-});
+};
+
+app.get('/health', handleHealthCheck);
+app.get((process.env.API_PREFIX || '/api/v1') + '/health', handleHealthCheck);
 
 const rateLimit = require('express-rate-limit');
 

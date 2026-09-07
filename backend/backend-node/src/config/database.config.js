@@ -1,13 +1,12 @@
 const mongoose = require('mongoose');
 
 // MongoDB Configuration
-const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/englishdb_nodejs';
+const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/englishdb_nodejs';
 const mongooseOptions = {
-    serverSelectionTimeoutMS: 5000, // Timeout after 5s instead of 30s
+    serverSelectionTimeoutMS: 15000, // Timeout after 15s for cloud clusters
     socketTimeoutMS: 45000, // Close sockets after 45s of inactivity
-    family: 4, // Use IPv4, skip trying IPv6
     maxPoolSize: 10, // Maintain up to 10 socket connections
-    minPoolSize: 3, // Maintain at least 3 socket connections
+    minPoolSize: 2, // Maintain at least 2 socket connections
     retryWrites: true, // Retry failed writes
     retryReads: true, // Retry failed reads
 };
