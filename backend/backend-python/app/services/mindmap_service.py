@@ -26,7 +26,7 @@ def generate_mindmap(topic: str) -> Dict[str, Any]:
         candidate_models = ['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']
         for model_name in candidate_models:
             try:
-                genai.configure(api_key=gemini_key)
+                genai.configure(api_key=gemini_key, transport='rest')
                 model = genai.GenerativeModel(
                     model_name=model_name,
                     generation_config={'response_mime_type': 'application/json'}

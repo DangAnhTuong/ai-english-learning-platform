@@ -69,7 +69,7 @@ class RealtimeService:
     def _get_model(self, model_name: str):
         """Lấy hoặc khởi tạo Gemini GenerativeModel theo tên model"""
         if model_name not in self._models_cache:
-            genai.configure(api_key=self.gemini_key)
+            genai.configure(api_key=self.gemini_key, transport='rest')
             self._models_cache[model_name] = genai.GenerativeModel(
                 model_name=model_name,
                 system_instruction=SYSTEM_INSTRUCTION
@@ -79,7 +79,7 @@ class RealtimeService:
     async def initialize(self):
         """Khởi tạo service"""
         self.is_initialized = True
-        logger.info("Realtime service initialized with multi-model failover pool")
+        logger.info("Realtime service initialized with multi-model failover pool (REST transport)")
 
     def _sanitize_history(self, history: list) -> list:
         """Chuẩn hóa lịch sử chat cho Gemini API:
@@ -167,10 +167,10 @@ class RealtimeService:
                 try:
                     model = self._get_model(model_name)
                     
-                    # 1. Thử chat với history
+                    # 1. Thử chat với history qua asyncio.to_thread để tránh nghẽn luồng
                     try:
                         chat = model.start_chat(history=formatted_history)
-                        response = chat.send_message(user_message, stream=True)
+                        response = await asyncio.to_thread(chat.send_message, user_message, stream=True)
 
                         yielded_any = False
                         for chunk in response:
@@ -182,7 +182,8 @@ class RealtimeService:
                             return
                     except Exception as chat_err:
                         logger.warning(f"Model '{model_name}' streaming chat error: {chat_err}. Trying direct generation...")
-                        res = model.generate_content(
+                        res = await asyncio.to_thread(
+                            model.generate_content,
                             f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):", 
                             stream=True
                         )
@@ -208,7 +209,7 @@ class RealtimeService:
             yield self._smart_conversational_fallback(user_message)
 
     async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
-        """Lấy response từ AI assistant tức thì qua failover pool"""
+        """Lấy response từ AI assistant tức thì qua failover pool (REST transport + non-blocking)"""
         try:
             if not self.is_initialized:
                 await self.initialize()
@@ -220,13 +221,14 @@ class RealtimeService:
                     model = self._get_model(model_name)
                     try:
                         chat = model.start_chat(history=formatted_history)
-                        res = chat.send_message(user_message)
+                        res = await asyncio.to_thread(chat.send_message, user_message)
                         if res and res.text:
                             logger.info(f"AI response via '{model_name}' successful")
                             return res.text.strip()
                     except Exception as chat_err:
                         logger.warning(f"Model '{model_name}' chat error: {chat_err}. Trying direct...")
-                        res = model.generate_content(
+                        res = await asyncio.to_thread(
+                            model.generate_content,
                             f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):"
                         )
                         if res and res.text:
