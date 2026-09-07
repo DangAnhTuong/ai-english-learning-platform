@@ -19,13 +19,13 @@ DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
 # Danh sách pool models Gemini dự phòng đa tầng (High Availability)
 # Sắp xếp theo thứ tự ưu tiên độ ổn định và hạn mức quota cao nhất
 AVAILABLE_GEMINI_MODELS = [
-    'gemini-3.5-flash',
-    'gemini-3.5-flash-lite',
     'gemini-3.7-flash',
     'gemini-3.8-flash',
+    'gemini-3.5-flash-lite',
     'gemini-flash-latest',
     'gemini-flash-lite-latest',
     'gemini-3.1-flash-lite',
+    'gemini-3.5-flash',
 ]
 
 # Built-in instant dictionary database for instant lookup
@@ -156,7 +156,7 @@ class RealtimeService:
         return f"That's really interesting! Could you share a bit more about that, or shall we try practicing a conversation around it?"
 
     async def stream_ai_response(self, user_message: str, conversation_history: list = None):
-        """Stream response từ AI bằng pool Gemini đa tầng (tự động chuyển model nếu gặp lỗi hoặc hết quota)"""
+        """Stream response từ AI bằng pool Gemini đa tầng với hiệu ứng typewriter mượt mà như ChatGPT"""
         try:
             if not self.is_initialized:
                 await self.initialize()
@@ -166,35 +166,30 @@ class RealtimeService:
             for model_name in AVAILABLE_GEMINI_MODELS:
                 try:
                     model = self._get_model(model_name)
+                    full_text = None
                     
-                    # 1. Thử chat với history qua asyncio.to_thread để tránh nghẽn luồng
                     try:
                         chat = model.start_chat(history=formatted_history)
-                        response = await asyncio.to_thread(chat.send_message, user_message, stream=True)
-
-                        yielded_any = False
-                        for chunk in response:
-                            if chunk.text:
-                                yielded_any = True
-                                yield chunk.text
-                        if yielded_any:
-                            logger.info(f"Streamed AI response via '{model_name}' successfully")
-                            return
+                        res = await asyncio.to_thread(chat.send_message, user_message)
+                        if res and res.text:
+                            full_text = res.text.strip()
                     except Exception as chat_err:
-                        logger.warning(f"Model '{model_name}' streaming chat error: {chat_err}. Trying direct generation...")
+                        logger.warning(f"Model '{model_name}' chat error: {chat_err}. Trying direct generation...")
                         res = await asyncio.to_thread(
                             model.generate_content,
-                            f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):", 
-                            stream=True
+                            f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):"
                         )
-                        yielded_any = False
-                        for chunk in res:
-                            if chunk.text:
-                                yielded_any = True
-                                yield chunk.text
-                        if yielded_any:
-                            logger.info(f"Generated direct AI response via '{model_name}' successfully")
-                            return
+                        if res and res.text:
+                            full_text = res.text.strip()
+
+                    if full_text:
+                        logger.info(f"Generated AI response via '{model_name}' ({len(full_text)} chars)")
+                        words = full_text.split(' ')
+                        for i in range(0, len(words), 3):
+                            chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
+                            yield chunk
+                            await asyncio.sleep(0.03)
+                        return
 
                 except Exception as model_err:
                     logger.warning(f"Model '{model_name}' failed ({model_err}). Failing over to next model...")
@@ -202,7 +197,11 @@ class RealtimeService:
 
             # 2. Fallback tự nhiên thông minh nếu tất cả models bị chặn mạng
             fallback = self._smart_conversational_fallback(user_message)
-            yield fallback
+            words = fallback.split(' ')
+            for i in range(0, len(words), 3):
+                chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
+                yield chunk
+                await asyncio.sleep(0.03)
 
         except Exception as e:
             logger.error(f"Streaming failed: {str(e)}")
