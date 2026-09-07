@@ -123,6 +123,7 @@ export const chatService = {
             const decoder = new TextDecoder('utf-8');
             let done = false;
 
+            let receivedAny = false;
             while (!done) {
                 const { value, done: readerDone } = await reader.read();
                 done = readerDone;
@@ -134,6 +135,7 @@ export const chatService = {
                             try {
                                 const data = JSON.parse(line.slice(6));
                                 if (data.content) {
+                                    receivedAny = true;
                                     onChunk(data.content);
                                 }
                             } catch (e) {
@@ -143,9 +145,26 @@ export const chatService = {
                     }
                 }
             }
+
+            if (!receivedAny) {
+                console.warn('Stream ended with 0 chunks, falling back to REST chat...');
+                const restRes = await this.sendMessage(message, conversationHistory);
+                if (restRes.success && restRes.response) {
+                    onChunk(restRes.response);
+                }
+            }
             return { success: true };
         } catch (error) {
-            console.error('Chat stream API error:', error);
+            console.error('Chat stream API error, attempting REST chat fallback:', error);
+            try {
+                const restRes = await this.sendMessage(message, conversationHistory);
+                if (restRes.success && restRes.response) {
+                    onChunk(restRes.response);
+                    return { success: true };
+                }
+            } catch (err2) {
+                console.error('REST chat fallback also failed:', err2);
+            }
             return { success: false, error: error.message };
         }
     },

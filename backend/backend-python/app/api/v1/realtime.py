@@ -96,7 +96,13 @@ async def chat_stream_response(request: Dict[str, Any]):
                 yield f"data: {json.dumps({'content': chunk})}\n\n"
             yield "data: [DONE]\n\n"
             
-        return StreamingResponse(event_generator(), media_type="text/event-stream")
+        headers = {
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+            "Content-Type": "text/event-stream; charset=utf-8"
+        }
+        return StreamingResponse(event_generator(), media_type="text/event-stream", headers=headers)
         
     except Exception as e:
         print(f"Chat stream failed: {str(e)}")
