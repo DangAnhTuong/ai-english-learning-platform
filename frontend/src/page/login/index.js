@@ -91,9 +91,12 @@ function Login() {
       handleLoginSuccess(response);
     } catch (error) {
       console.error('Login error:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      let errorMessage = error.response?.data?.error || error.message || 'Đăng nhập thất bại. Vui lòng thử lại!';
+      if (errorMessage.toLowerCase().includes('network error')) {
+        errorMessage = 'Máy chủ đám mây đang thức giấc sau chế độ ngủ đông (~30s). Vui lòng đợi thanh thông báo hoàn tất rồi bấm Đăng nhập lại nhé!';
+      }
       dispatch(loginFailure(errorMessage));
-      message.error(errorMessage);
+      message.error(errorMessage, 5);
     } finally {
       setLoading(false);
     }

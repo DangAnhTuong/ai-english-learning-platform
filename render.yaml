@@ -13,6 +13,8 @@ services:
         value: 10000
       - key: API_PREFIX
         value: /api/v1
+      - key: MONGO_URI
+        sync: false
       - key: CORS_ALLOWLIST
         value: https://danganhtuong.dev,https://english.danganhtuong.dev,http://localhost:3000,http://localhost:3005
       - key: FRONTEND_URL
@@ -21,6 +23,10 @@ services:
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
 
   - type: web
     name: english-api-python
@@ -34,6 +40,14 @@ services:
         value: production
       - key: LOG_LEVEL
         value: info
+      - key: MONGODB_URL
+        sync: false
+      - key: DATABASE_NAME
+        value: english-learning
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: DEEPGRAM_API_KEY
+        sync: false
       - key: ALLOWED_ORIGINS
         value: https://english.danganhtuong.dev,https://danganhtuong.dev,http://localhost:3000,http://localhost:3005
       - key: WS_ALLOWED_ORIGINS
