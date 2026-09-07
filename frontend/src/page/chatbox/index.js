@@ -370,13 +370,22 @@ function Chatbox() {
         if (lower.includes('hello') || lower.includes('hi') || lower.includes('xin chào') || lower.includes('hey')) {
             return "Hello! It's so wonderful to chat with you today! How has your day been going so far?";
         }
+        if (lower.includes('name') || lower.includes('tên')) {
+            return "Hi there! I'm your AI English Tutor, and you can think of me as your friendly conversation partner. What should I call you, and what would you like to practice today?";
+        }
+        if (lower.includes('c++') || lower.includes('code') || lower.includes('programming')) {
+            return "C++ is a classic and really powerful programming language to learn! We can start with the basics, like variables and data types, or discuss coding topics in English. Have you written any code before?";
+        }
+        if (lower.includes('beginer') || lower.includes('beginner') || lower.includes('mới bắt đầu') || lower.includes('cơ bản')) {
+            return "Welcome! Starting as a beginner is wonderful, and we'll take it step by step with clear, simple English. What would you like to learn first: greetings, daily routines, or hobbies?";
+        }
         if (lower.includes('order') || lower.includes('food') || lower.includes('restaurant')) {
             return "Ordering food is great practice! What would you like to order? For example, you can say: 'I'd like to order a grilled chicken sandwich.'";
         }
         if (lower.includes('thank') || lower.includes('cảm ơn')) {
             return "You're very welcome! You are doing a fantastic job practicing. What shall we talk about next?";
         }
-        return `I hear you! That sounds really interesting. Could you tell me a little bit more about that?`;
+        return "I hear you! That sounds really interesting. Could you tell me a little bit more about that, or would you like to practice a short conversation together?";
     };
 
     const handleKeyPress = (e) => {

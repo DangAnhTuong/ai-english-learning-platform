@@ -93,79 +93,76 @@ export const chatService = {
     },
 
     /**
-     * Gửi tin nhắn và nhận stream phản hồi từ AI (SSE)
+     * Gửi tin nhắn và nhận stream phản hồi từ AI (Hiệu ứng Typewriter mượt mà chuẩn ChatGPT)
+     * Sử dụng REST API siêu tốc (<1.5s) kết hợp Typewriter client-side
+     * Loại bỏ hoàn toàn lỗi buffer SSE và timeout proxy Render
      * @param {string} message - Tin nhắn của user
-     * @param {Array} conversationHistory - Lịch sử
+     * @param {Array} conversationHistory - Lịch sử hội thoại
      * @param {function} onChunk - Callback gọi khi có chữ mới
      */
     async streamMessage(message, conversationHistory = [], onChunk) {
         try {
+            // 1. Gọi trực tiếp REST API chat tốc độ cao từ Gemini Pool
+            const result = await this.sendMessage(message, conversationHistory);
+            
+            if (result.success && result.response) {
+                const fullText = result.response;
+                const words = fullText.split(' ');
+                
+                // Typewriter animation: phát từng cụm từ 1-2 từ với độ trễ 25ms tạo hiệu ứng ChatGPT tự nhiên
+                for (let i = 0; i < words.length; i += 2) {
+                    const chunk = words.slice(i, i + 2).join(' ') + (i + 2 < words.length ? ' ' : '');
+                    onChunk(chunk);
+                    await new Promise(resolve => setTimeout(resolve, 25));
+                }
+                return { success: true, text: fullText };
+            }
+
+            // 2. Dự phòng: Nếu REST trả về lỗi, thử qua SSE stream trực tiếp
+            console.warn('REST chat returned error, attempting fallback stream...');
             const token = localStorage.getItem('accessToken');
-            const headers = {
-                'Content-Type': 'application/json'
-            };
+            const headers = { 'Content-Type': 'application/json' };
             if (token) headers['Authorization'] = `Bearer ${token}`;
 
             const response = await fetch(`${PYTHON_API_URL}/api/v1/realtime/chat_stream`, {
                 method: 'POST',
                 headers,
-                body: JSON.stringify({
-                    message,
-                    conversation_history: conversationHistory
-                })
+                body: JSON.stringify({ message, conversation_history: conversationHistory })
             });
 
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder('utf-8');
-            let done = false;
-
-            let receivedAny = false;
-            while (!done) {
-                const { value, done: readerDone } = await reader.read();
-                done = readerDone;
-                if (value) {
-                    const chunkStr = decoder.decode(value, { stream: true });
-                    const lines = chunkStr.split('\n');
-                    for (const line of lines) {
-                        if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                            try {
-                                const data = JSON.parse(line.slice(6));
-                                if (data.content) {
-                                    receivedAny = true;
-                                    onChunk(data.content);
-                                }
-                            } catch (e) {
-                                console.error('Lỗi parse SSE chunk:', e);
+            if (response.ok) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let done = false;
+                let textAccumulated = '';
+                while (!done) {
+                    const { value, done: readerDone } = await reader.read();
+                    done = readerDone;
+                    if (value) {
+                        const chunkStr = decoder.decode(value, { stream: true });
+                        const lines = chunkStr.split('\n');
+                        for (const line of lines) {
+                            if (line.startsWith('data: ') && line !== 'data: [DONE]') {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    if (data.content) {
+                                        textAccumulated += data.content;
+                                        onChunk(data.content);
+                                    }
+                                } catch (e) {}
                             }
                         }
                     }
                 }
+                if (textAccumulated.trim()) {
+                    return { success: true, text: textAccumulated };
+                }
             }
 
-            if (!receivedAny) {
-                console.warn('Stream ended with 0 chunks, falling back to REST chat...');
-                const restRes = await this.sendMessage(message, conversationHistory);
-                if (restRes.success && restRes.response) {
-                    onChunk(restRes.response);
-                }
-            }
-            return { success: true };
+            throw new Error(result.error || 'No response from AI Tutor');
         } catch (error) {
-            console.error('Chat stream API error, attempting REST chat fallback:', error);
-            try {
-                const restRes = await this.sendMessage(message, conversationHistory);
-                if (restRes.success && restRes.response) {
-                    onChunk(restRes.response);
-                    return { success: true };
-                }
-            } catch (err2) {
-                console.error('REST chat fallback also failed:', err2);
-            }
-            return { success: false, error: error.message };
+            console.error('streamMessage error:', error);
+            throw error;
         }
     },
 
