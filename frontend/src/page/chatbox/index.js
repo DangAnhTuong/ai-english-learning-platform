@@ -358,19 +358,25 @@ function Chatbox() {
 
     const generateFallbackResponse = (userText) => {
         const lower = userText.toLowerCase();
+        if (lower.includes('tired') || lower.includes('mệt') || lower.includes('sleepy') || lower.includes('exhausted')) {
+            return "I'm so sorry to hear you're feeling tired! Taking good care of yourself is important. Did you have an exhausting day, or would you like to keep our chat nice and relaxing today?";
+        }
+        if (lower.includes('help') || lower.includes('cứu') || lower.includes('giúp')) {
+            return "I'd love to help you! We can practice casual conversation, expand your vocabulary, or do a quick roleplay. What would you like to start with?";
+        }
         if (lower.includes('example') || lower.includes('ví dụ')) {
             return "Sure! For example: 'Could I please get a table for two near the window?' You can use this polite phrase whenever you arrive at a restaurant. How would you order a beverage next?";
         }
-        if (lower.includes('hello') || lower.includes('hi') || lower.includes('xin chào')) {
-            return "Hello! How are you doing today? I'm excited to practice English with you! What would you like to talk about: food, travel, or hobbies?";
+        if (lower.includes('hello') || lower.includes('hi') || lower.includes('xin chào') || lower.includes('hey')) {
+            return "Hello! It's so wonderful to chat with you today! How has your day been going so far?";
         }
         if (lower.includes('order') || lower.includes('food') || lower.includes('restaurant')) {
             return "Ordering food is great practice! What would you like to order? For example, you can say: 'I'd like to order a grilled chicken sandwich.'";
         }
         if (lower.includes('thank') || lower.includes('cảm ơn')) {
-            return "You're very welcome! Keep practicing every day to improve your fluency!";
+            return "You're very welcome! You are doing a fantastic job practicing. What shall we talk about next?";
         }
-        return `That's great! Let's talk more about "${userText}". How do you feel about this topic?`;
+        return `I hear you! That sounds really interesting. Could you tell me a little bit more about that?`;
     };
 
     const handleKeyPress = (e) => {
