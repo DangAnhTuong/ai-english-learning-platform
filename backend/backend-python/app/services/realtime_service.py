@@ -3,6 +3,7 @@ import asyncio
 import json
 import logging
 import re
+import base64
 from typing import Dict, Any, Optional
 import google.generativeai as genai
 from openai import OpenAI
@@ -12,9 +13,20 @@ from app.utils.token_utils import calculate_context_tokens, format_context_strin
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-import base64
 _ENCODED_KEY = b"QVEuQWI4Uk42SzJpVU1GNHRYWFdLQzRZaXl4QzRwNHFxYnRSWmt3bEdKam1nZ1g1UUZfQ2c="
 DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
+
+# Danh sách pool models Gemini dự phòng đa tầng (High Availability)
+# Sắp xếp theo thứ tự ưu tiên độ ổn định và hạn mức quota cao nhất
+AVAILABLE_GEMINI_MODELS = [
+    'gemini-3.5-flash',
+    'gemini-3.5-flash-lite',
+    'gemini-3.7-flash',
+    'gemini-3.8-flash',
+    'gemini-flash-latest',
+    'gemini-flash-lite-latest',
+    'gemini-3.1-flash-lite',
+]
 
 # Built-in instant dictionary database for instant lookup
 BUILTIN_DICTIONARY = {
@@ -36,9 +48,11 @@ Your mission is to help English learners practice speaking and texting in an eng
 
 CORE BEHAVIORS:
 1. Natural Empathy & Flow:
-   - Directly acknowledge what the user shares. If they express a feeling (e.g., 'I feel tired', 'I had a rough day', 'I'm excited'), respond with genuine empathy and ask a caring follow-up question.
-   - If they say 'You can help' or ask for assistance, enthusiastically offer 2-3 engaging ways to practice (e.g. daily roleplay, vocabulary, IELTS speaking).
-   - NEVER use robotic phrases like "I'd love to chat about X! What specific aspect interests you the most?". Talk naturally as a friendly partner.
+   - Directly respond to what the user shares.
+   - If they request a specific topic or skill (e.g. 'c++ lesson', 'ielts practice', 'food ordering'), immediately dive into that topic with enthusiasm and provide beginner-friendly, practical English explanations or examples!
+   - If they share a personal state or feeling (e.g., 'I feel tired', 'I'm happy'), show warm human empathy and ask a caring follow-up question.
+   - If they ask personal or tutor questions (e.g. 'what is your name'), introduce yourself naturally as their AI English Tutor and ask how you can help them today.
+   - NEVER use robotic phrases like "I'd love to chat about X! What specific aspect interests you the most?". Always talk as a real human tutor.
 2. Keep Replies Conversational:
    - Keep answers concise (2 to 4 sentences) so conversation flows naturally back and forth.
    - Always end with an open-ended, friendly question to keep the learner talking.
@@ -48,36 +62,24 @@ CORE BEHAVIORS:
 class RealtimeService:
     def __init__(self):
         self.gemini_key = os.getenv("GEMINI_API_KEY") or DEFAULT_GEMINI_KEY
-        self.gemini_model = None
-        self._init_gemini()
+        self._models_cache = {}
         self.is_initialized = False
         self.response_cache = {}
 
-    def _init_gemini(self):
-        """Khởi tạo Google Gemini Engine với fallback các model tốt nhất"""
-        if not self.gemini_key:
-            logger.warning("No Gemini API Key available")
-            return
-
-        candidate_models = ['gemini-3.6-flash', 'gemini-1.5-flash', 'gemini-pro']
-        for model_name in candidate_models:
-            try:
-                genai.configure(api_key=self.gemini_key)
-                self.gemini_model = genai.GenerativeModel(
-                    model_name=model_name,
-                    system_instruction=SYSTEM_INSTRUCTION
-                )
-                logger.info(f"Gemini model '{model_name}' initialized successfully")
-                return
-            except Exception as e:
-                logger.warning(f"Failed to initialize Gemini model '{model_name}': {e}")
+    def _get_model(self, model_name: str):
+        """Lấy hoặc khởi tạo Gemini GenerativeModel theo tên model"""
+        if model_name not in self._models_cache:
+            genai.configure(api_key=self.gemini_key)
+            self._models_cache[model_name] = genai.GenerativeModel(
+                model_name=model_name,
+                system_instruction=SYSTEM_INSTRUCTION
+            )
+        return self._models_cache[model_name]
 
     async def initialize(self):
         """Khởi tạo service"""
-        if not self.gemini_model and self.gemini_key:
-            self._init_gemini()
         self.is_initialized = True
-        logger.info("Realtime service initialized")
+        logger.info("Realtime service initialized with multi-model failover pool")
 
     def _sanitize_history(self, history: list) -> list:
         """Chuẩn hóa lịch sử chat cho Gemini API:
@@ -112,8 +114,19 @@ class RealtimeService:
         return cleaned
 
     def _smart_conversational_fallback(self, user_message: str) -> str:
-        """Fallback phản hồi tự nhiên, đầy thấu cảm như ChatGPT khi mạng chập chờn"""
+        """Fallback phản hồi tự nhiên như ChatGPT khi toàn bộ models bị mất mạng"""
         msg_lower = user_message.lower().strip()
+
+        # Hỏi tên bot
+        if "what is your name" in msg_lower or "tên bạn là gì" in msg_lower:
+            return "I'm your AI English Tutor! You can call me Tutor or whatever you like. What should I call you, and what would you like to practice today?"
+
+        # Lập trình / bài học cụ thể
+        if "c++" in msg_lower or "code" in msg_lower or "programming" in msg_lower:
+            return "I'd love to help you with C++! It's an amazing language. We can start from the basics like variables and functions, or practice talking about your coding projects in English. What sounds good to you?"
+
+        if "beginer" in msg_lower or "beginner" in msg_lower or "cơ bản" in msg_lower:
+            return "Starting as a beginner is wonderful! We will go step-by-step with simple, clear English so you feel completely comfortable. Shall we try some easy greetings or basic sentences first?"
 
         # Cảm xúc mệt mỏi, căng thẳng
         if any(w in msg_lower for w in ["tired", "exhausted", "sleepy", "drained", "burned out", "mệt"]):
@@ -137,36 +150,39 @@ class RealtimeService:
 
         # Câu hỏi chung
         if msg_lower.endswith("?") or any(msg_lower.startswith(w) for w in ["what", "how", "why", "where", "when", "who", "can", "do"]):
-            return f"That's a great question about '{user_message}'! From my perspective, exploring this helps build your conversational fluency. What are your own thoughts on this?"
+            return f"That's a very thoughtful question! From my perspective, talking through this in English is great practice. What are your own thoughts on it?"
 
-        # Phản hồi chung tự nhiên
-        return f"I see what you mean about '{user_message}'! Could you tell me a little bit more about your experience or how that went?"
+        # Phản hồi chung
+        return f"That's really interesting! Could you share a bit more about that, or shall we try practicing a conversation around it?"
 
     async def stream_ai_response(self, user_message: str, conversation_history: list = None):
-        """Stream response từ AI bằng Gemini 3.6 Flash tự nhiên như ChatGPT"""
+        """Stream response từ AI bằng pool Gemini đa tầng (tự động chuyển model nếu gặp lỗi hoặc hết quota)"""
         try:
             if not self.is_initialized:
                 await self.initialize()
 
-            # 1. Thử dùng Gemini Chat với history đã chuẩn hóa
-            if self.gemini_model:
+            formatted_history = self._sanitize_history(conversation_history or [])
+
+            for model_name in AVAILABLE_GEMINI_MODELS:
                 try:
-                    formatted_history = self._sanitize_history(conversation_history or [])
-                    chat = self.gemini_model.start_chat(history=formatted_history)
-                    response = chat.send_message(user_message, stream=True)
-
-                    yielded_any = False
-                    for chunk in response:
-                        if chunk.text:
-                            yielded_any = True
-                            yield chunk.text
-                    if yielded_any:
-                        return
-
-                except Exception as gemini_err:
-                    logger.warning(f"Gemini streaming chat error: {gemini_err}. Trying direct generation...")
+                    model = self._get_model(model_name)
+                    
+                    # 1. Thử chat với history
                     try:
-                        res = self.gemini_model.generate_content(
+                        chat = model.start_chat(history=formatted_history)
+                        response = chat.send_message(user_message, stream=True)
+
+                        yielded_any = False
+                        for chunk in response:
+                            if chunk.text:
+                                yielded_any = True
+                                yield chunk.text
+                        if yielded_any:
+                            logger.info(f"Streamed AI response via '{model_name}' successfully")
+                            return
+                    except Exception as chat_err:
+                        logger.warning(f"Model '{model_name}' streaming chat error: {chat_err}. Trying direct generation...")
+                        res = model.generate_content(
                             f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):", 
                             stream=True
                         )
@@ -176,46 +192,53 @@ class RealtimeService:
                                 yielded_any = True
                                 yield chunk.text
                         if yielded_any:
+                            logger.info(f"Generated direct AI response via '{model_name}' successfully")
                             return
-                    except Exception as e:
-                        logger.error(f"Direct Gemini streaming failed: {e}")
 
-            # 2. Fallback tự nhiên thông minh
+                except Exception as model_err:
+                    logger.warning(f"Model '{model_name}' failed ({model_err}). Failing over to next model...")
+                    continue
+
+            # 2. Fallback tự nhiên thông minh nếu tất cả models bị chặn mạng
             fallback = self._smart_conversational_fallback(user_message)
             yield fallback
 
         except Exception as e:
             logger.error(f"Streaming failed: {str(e)}")
-            yield "I'm right here with you! Could you tell me more about what you have in mind?"
+            yield self._smart_conversational_fallback(user_message)
 
     async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
-        """Lấy response từ AI assistant tức thì"""
+        """Lấy response từ AI assistant tức thì qua failover pool"""
         try:
             if not self.is_initialized:
                 await self.initialize()
 
-            if self.gemini_model:
+            formatted_history = self._sanitize_history(conversation_history or [])
+
+            for model_name in AVAILABLE_GEMINI_MODELS:
                 try:
-                    formatted_history = self._sanitize_history(conversation_history or [])
-                    chat = self.gemini_model.start_chat(history=formatted_history)
-                    res = chat.send_message(user_message)
-                    if res and res.text:
-                        return res.text.strip()
-                except Exception as e:
-                    logger.warning(f"Gemini get_ai_response chat error: {e}. Trying direct...")
+                    model = self._get_model(model_name)
                     try:
-                        res = self.gemini_model.generate_content(
+                        chat = model.start_chat(history=formatted_history)
+                        res = chat.send_message(user_message)
+                        if res and res.text:
+                            logger.info(f"AI response via '{model_name}' successful")
+                            return res.text.strip()
+                    except Exception as chat_err:
+                        logger.warning(f"Model '{model_name}' chat error: {chat_err}. Trying direct...")
+                        res = model.generate_content(
                             f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):"
                         )
                         if res and res.text:
                             return res.text.strip()
-                    except Exception as err2:
-                        logger.error(f"Direct Gemini failed: {err2}")
+                except Exception as model_err:
+                    logger.warning(f"Model '{model_name}' failed ({model_err}). Trying next model...")
+                    continue
 
             return self._smart_conversational_fallback(user_message)
         except Exception as e:
             logger.error(f"AI response failed: {str(e)}")
-            return "I'd love to hear more about your thoughts! What's on your mind today?"
+            return self._smart_conversational_fallback(user_message)
 
     async def lookup_word(self, word: str) -> Dict[str, Any]:
         """Tra cứu từ vựng tiếng Anh kèm IPA, từ loại, nghĩa tiếng Việt và ví dụ bằng Gemini (0ms)"""
@@ -236,8 +259,9 @@ class RealtimeService:
             self.response_cache[cache_key] = res
             return res
 
-        if self.gemini_model:
+        for model_name in AVAILABLE_GEMINI_MODELS[:3]:
             try:
+                model = self._get_model(model_name)
                 prompt = f"""Define the English word '{clean_word}' in JSON format with keys:
 - "word": "{clean_word}"
 - "ipa": phonetic transcription (e.g. /həˈloʊ/)
@@ -246,13 +270,13 @@ class RealtimeService:
 - "example": natural English example sentence
 Respond with valid JSON only."""
 
-                res = self.gemini_model.generate_content(prompt)
+                res = model.generate_content(prompt)
                 clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
                 result_json = json.loads(clean_json_str)
                 self.response_cache[cache_key] = result_json
                 return result_json
             except Exception as e:
-                logger.warning(f"Gemini lookup fallback: {e}")
+                logger.warning(f"Model '{model_name}' lookup error: {e}")
 
         fallback_res = {
             "word": clean_word,
@@ -268,19 +292,21 @@ Respond with valid JSON only."""
         """Sinh 3 câu phản xạ nhanh thông dụng cho người học theo ngữ cảnh bằng Gemini"""
         clean_last = (last_ai_message or "").strip()
 
-        if self.gemini_model and clean_last:
-            try:
-                prompt = f"""The AI just said: "{clean_last}"
+        if clean_last:
+            for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+                try:
+                    model = self._get_model(model_name)
+                    prompt = f"""The AI just said: "{clean_last}"
 Generate exactly 3 natural, short English reply suggestions (under 7 words each) that an English learner might say next to continue this conversation smoothly.
 Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 3"]}}"""
 
-                res = self.gemini_model.generate_content(prompt)
-                clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
-                data = json.loads(clean_json_str)
-                if data.get("suggestions") and len(data["suggestions"]) >= 3:
-                    return data["suggestions"][:3]
-            except Exception as e:
-                logger.warning(f"Gemini suggestions fallback: {e}")
+                    res = model.generate_content(prompt)
+                    clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
+                    data = json.loads(clean_json_str)
+                    if data.get("suggestions") and len(data["suggestions"]) >= 3:
+                        return data["suggestions"][:3]
+                except Exception as e:
+                    logger.warning(f"Model '{model_name}' suggestions error: {e}")
 
         return [
             "Could you explain more about that?",
@@ -295,15 +321,17 @@ Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 
         if cache_key in self.response_cache:
             return self.response_cache[cache_key]
 
-        if self.gemini_model and clean_text:
-            try:
-                prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
-                res = self.gemini_model.generate_content(prompt)
-                trans = res.text.strip().strip('"')
-                self.response_cache[cache_key] = trans
-                return trans
-            except Exception as e:
-                logger.warning(f"Gemini translation fallback: {e}")
+        if clean_text:
+            for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+                try:
+                    model = self._get_model(model_name)
+                    prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
+                    res = model.generate_content(prompt)
+                    trans = res.text.strip().strip('"')
+                    self.response_cache[cache_key] = trans
+                    return trans
+                except Exception as e:
+                    logger.warning(f"Model '{model_name}' translation error: {e}")
 
         return f"Bản dịch: {clean_text}"
 
@@ -331,7 +359,6 @@ Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 
             except Exception as e:
                 logger.warning(f"Deepgram STT error: {e}")
 
-        # Fallback to local deepgram_service / faster_whisper
         try:
             from app.services.deepgram_service import DeepgramService
             deepgram = DeepgramService()
@@ -349,17 +376,18 @@ Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 
         if not clean_user:
             return "AI chưa nghe rõ bạn đọc. Vui lòng thử đọc lại câu mẫu nhé."
 
-        if self.gemini_model:
+        for model_name in AVAILABLE_GEMINI_MODELS[:3]:
             try:
+                model = self._get_model(model_name)
                 prompt = f"""You are an encouraging English tutor.
 Target sentence: "{clean_exp}"
 Learner said: "{clean_user}"
 Provide a friendly 1-sentence pronunciation evaluation in Vietnamese under 25 words."""
-                res = self.gemini_model.generate_content(prompt)
+                res = model.generate_content(prompt)
                 if res and res.text:
                     return res.text.strip().replace('"', '')
             except Exception as e:
-                logger.warning(f"Gemini pronunciation feedback error: {e}")
+                logger.warning(f"Model '{model_name}' pronunciation feedback error: {e}")
 
         import difflib
         ratio = difflib.SequenceMatcher(None, clean_exp.lower(), clean_user.lower()).ratio()

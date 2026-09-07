@@ -20,82 +20,84 @@ def generate_mindmap(topic: str) -> Dict[str, Any]:
     if not clean_topic:
         clean_topic = "English"
 
-    # --- 1. Thử sinh bằng Google Gemini 3.6 Flash ---
+    # --- 1. Thử sinh bằng Google Gemini Pool (gemini-3.5-flash, gemini-3.7-flash, etc.) ---
     gemini_key = get_gemini_key()
     if gemini_key:
-        try:
-            genai.configure(api_key=gemini_key)
-            model = genai.GenerativeModel(
-                'gemini-3.6-flash',
-                generation_config={'response_mime_type': 'application/json'}
-            )
-            prompt = f"""
-            Hãy tạo một sơ đồ tư duy (mindmap) chuyên sâu cho từ hoặc chủ đề tiếng Anh: "{clean_topic}".
-            Yêu cầu cấu trúc JSON chuẩn 100% dạng cây (tree structure).
-            Bao gồm chính xác các nhánh chính sau:
-            1. "Meaning & IPA (Nghĩa & Phiên âm)"
-            2. "Word Family (Gia đình từ)"
-            3. "Synonyms (Từ đồng nghĩa)"
-            4. "Antonyms (Từ trái nghĩa)"
-            5. "Common Phrases (Cụm từ thông dụng)"
+        candidate_models = ['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']
+        for model_name in candidate_models:
+            try:
+                genai.configure(api_key=gemini_key)
+                model = genai.GenerativeModel(
+                    model_name=model_name,
+                    generation_config={'response_mime_type': 'application/json'}
+                )
+                prompt = f"""
+                Hãy tạo một sơ đồ tư duy (mindmap) chuyên sâu cho từ hoặc chủ đề tiếng Anh: "{clean_topic}".
+                Yêu cầu cấu trúc JSON chuẩn 100% dạng cây (tree structure).
+                Bao gồm chính xác các nhánh chính sau:
+                1. "Meaning & IPA (Nghĩa & Phiên âm)"
+                2. "Word Family (Gia đình từ)"
+                3. "Synonyms (Từ đồng nghĩa)"
+                4. "Antonyms (Từ trái nghĩa)"
+                5. "Common Phrases (Cụm từ thông dụng)"
 
-            QUY TẮC BẮT BUỘC:
-            - "label": "{clean_topic}"
-            - "definition": Phiên âm chuẩn quốc tế IPA kèm nghĩa tiếng Việt tổng quát ngắn gọn.
-            - "children": danh sách 5 nhánh chính ở trên.
-            - Mỗi nhánh con chứa các thẻ nhãn tiếng Anh kèm dịch nghĩa tiếng Việt đi kèm ngay sau dấu gạch ngang (Ví dụ: "Homely - Ấm cúng, giản dị").
-            - Trả về JSON hợp lệ, không có markdown backticks.
+                QUY TẮC BẮT BUỘC:
+                - "label": "{clean_topic}"
+                - "definition": Phiên âm chuẩn quốc tế IPA kèm nghĩa tiếng Việt tổng quát ngắn gọn.
+                - "children": danh sách 5 nhánh chính ở trên.
+                - Mỗi nhánh con chứa các thẻ nhãn tiếng Anh kèm dịch nghĩa tiếng Việt đi kèm ngay sau dấu gạch ngang (Ví dụ: "Homely - Ấm cúng, giản dị").
+                - Trả về JSON hợp lệ, không có markdown backticks.
 
-            Ví dụ định dạng:
-            {{
-              "label": "{clean_topic}",
-              "definition": "/.../ - Định nghĩa và nghĩa tiếng Việt",
-              "children": [
+                Ví dụ định dạng:
                 {{
-                  "label": "Meaning & IPA (Nghĩa & Phiên âm)",
+                  "label": "{clean_topic}",
+                  "definition": "/.../ - Định nghĩa và nghĩa tiếng Việt",
                   "children": [
-                    {{"label": "Definition 1 - Nghĩa chi tiết"}},
-                    {{"label": "Part of speech - Từ loại chính"}}
-                  ]
-                }},
-                {{
-                  "label": "Word Family (Gia đình từ)",
-                  "children": [
-                    {{"label": "Word form 1 - Nghĩa"}},
-                    {{"label": "Word form 2 - Nghĩa"}}
-                  ]
-                }},
-                {{
-                  "label": "Synonyms (Từ đồng nghĩa)",
-                  "children": [
-                    {{"label": "Synonym 1 - Nghĩa"}},
-                    {{"label": "Synonym 2 - Nghĩa"}}
-                  ]
-                }},
-                {{
-                  "label": "Antonyms (Từ trái nghĩa)",
-                  "children": [
-                    {{"label": "Antonym 1 - Nghĩa"}}
-                  ]
-                }},
-                {{
-                  "label": "Common Phrases (Cụm từ thông dụng)",
-                  "children": [
-                    {{"label": "Phrase 1 - Nghĩa cụm từ"}},
-                    {{"label": "Phrase 2 - Nghĩa cụm từ"}}
+                    {{
+                      "label": "Meaning & IPA (Nghĩa & Phiên âm)",
+                      "children": [
+                        {{"label": "Definition 1 - Nghĩa chi tiết"}},
+                        {{"label": "Part of speech - Từ loại chính"}}
+                      ]
+                    }},
+                    {{
+                      "label": "Word Family (Gia đình từ)",
+                      "children": [
+                        {{"label": "Word form 1 - Nghĩa"}},
+                        {{"label": "Word form 2 - Nghĩa"}}
+                      ]
+                    }},
+                    {{
+                      "label": "Synonyms (Từ đồng nghĩa)",
+                      "children": [
+                        {{"label": "Synonym 1 - Nghĩa"}},
+                        {{"label": "Synonym 2 - Nghĩa"}}
+                      ]
+                    }},
+                    {{
+                      "label": "Antonyms (Từ trái nghĩa)",
+                      "children": [
+                        {{"label": "Antonym 1 - Nghĩa"}}
+                      ]
+                    }},
+                    {{
+                      "label": "Common Phrases (Cụm từ thông dụng)",
+                      "children": [
+                        {{"label": "Phrase 1 - Nghĩa cụm từ"}},
+                        {{"label": "Phrase 2 - Nghĩa cụm từ"}}
+                      ]
+                    }}
                   ]
                 }}
-              ]
-            }}
-            """
-            response = model.generate_content(prompt)
-            if response and response.text:
-                data = json.loads(response.text.strip())
-                if "label" in data and "children" in data:
-                    logger.info(f"Mindmap generated via Gemini for: {clean_topic}")
-                    return data
-        except Exception as e:
-            logger.warning(f"Gemini mindmap generation failed: {e}")
+                """
+                response = model.generate_content(prompt)
+                if response and response.text:
+                    data = json.loads(response.text.strip())
+                    if "label" in data and "children" in data:
+                        logger.info(f"Mindmap generated via Gemini '{model_name}' for: {clean_topic}")
+                        return data
+            except Exception as e:
+                logger.warning(f"Gemini '{model_name}' mindmap generation failed: {e}. Trying next model...")
 
     # --- 2. Thử sinh bằng OpenAI (nếu có key hợp lệ) ---
     openai_key = os.getenv("OPENAI_API_KEY")
