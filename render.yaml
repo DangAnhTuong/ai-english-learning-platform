@@ -1,0 +1,40 @@
+services:
+  - type: web
+    name: english-api-node
+    runtime: node
+    plan: free
+    rootDir: backend/backend-node
+    buildCommand: npm install
+    startCommand: node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: API_PREFIX
+        value: /api/v1
+      - key: CORS_ALLOWLIST
+        value: https://danganhtuong.dev,https://english.danganhtuong.dev,http://localhost:3000,http://localhost:3005
+      - key: FRONTEND_URL
+        value: https://english.danganhtuong.dev
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+
+  - type: web
+    name: english-api-python
+    runtime: python
+    plan: free
+    rootDir: backend/backend-python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: ALLOWED_ORIGINS
+        value: https://english.danganhtuong.dev,https://danganhtuong.dev,http://localhost:3000,http://localhost:3005
+      - key: WS_ALLOWED_ORIGINS
+        value: https://english.danganhtuong.dev,https://danganhtuong.dev,http://localhost:3000,http://localhost:3005

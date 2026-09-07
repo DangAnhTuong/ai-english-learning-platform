@@ -7,6 +7,7 @@ import './App.css';
 import AOS from 'aos';     
 import 'aos/dist/aos.css';  
 import SmoothScroll from './components/smooth_scroll'; 
+import CloudServerWarmupNotifier from './components/CloudServerWarmupNotifier'; 
 
 function App() {
   const dispatch = useDispatch();
@@ -56,6 +57,7 @@ function App() {
     <ErrorBoundary>
       <SmoothScroll>
         <div className="App">
+            <CloudServerWarmupNotifier />
             <Allroutes />
         </div>
       </SmoothScroll>
