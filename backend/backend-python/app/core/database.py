@@ -19,8 +19,11 @@ class Database:
     async def connect(self) -> None:
         """Connect to MongoDB"""
         if self._client is None:
-            mongodb_url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-            database_name = os.getenv("DATABASE_NAME", "english_learning")
+            atlas_default = "mongodb+srv://danganhtuongg:Tuong2026Password123@tuong.kcpiojp.mongodb.net/?retryWrites=true&w=majority&appName=tuong"
+            mongodb_url = os.getenv("MONGODB_URL") or os.getenv("MONGO_URI")
+            if not mongodb_url or (os.getenv("ENVIRONMENT") == "production" and ("localhost" in mongodb_url or "127.0.0.1" in mongodb_url)):
+                mongodb_url = atlas_default
+            database_name = os.getenv("DATABASE_NAME") or "english-learning"
             
             try:
                 self._client = AsyncIOMotorClient(mongodb_url)

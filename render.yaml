@@ -14,7 +14,7 @@ services:
       - key: API_PREFIX
         value: /api/v1
       - key: MONGO_URI
-        sync: false
+        value: mongodb+srv://danganhtuongg:Tuong2026Password123@tuong.kcpiojp.mongodb.net/english-learning?retryWrites=true&w=majority&appName=tuong
       - key: CORS_ALLOWLIST
         value: https://danganhtuong.dev,https://english.danganhtuong.dev,http://localhost:3000,http://localhost:3005
       - key: FRONTEND_URL
@@ -43,7 +43,7 @@ services:
       - key: LOG_LEVEL
         value: info
       - key: MONGODB_URL
-        sync: false
+        value: mongodb+srv://danganhtuongg:Tuong2026Password123@tuong.kcpiojp.mongodb.net/?retryWrites=true&w=majority&appName=tuong
       - key: DATABASE_NAME
         value: english-learning
       - key: OPENAI_API_KEY
