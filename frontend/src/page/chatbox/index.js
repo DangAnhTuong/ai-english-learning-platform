@@ -629,6 +629,7 @@ function Chatbox() {
                     lastAiMessage={lastAiMessage} 
                     onSelectSuggestion={(suggestion) => executeSend(suggestion)}
                     disabled={isTyping}
+                    isTyping={isTyping}
                 />
 
                 {/* --- Input Area --- */}

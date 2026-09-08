@@ -20,12 +20,12 @@ DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
 # Danh sách pool models Gemini dự phòng đa tầng (High Availability)
 # Sắp xếp theo thứ tự tốc độ cao nhất (sub-second) và hạn mức quota cao
 AVAILABLE_GEMINI_MODELS = [
-    'gemini-flash-lite-latest',        # ~0.77s (Siêu tốc & quota rộng)
+    'gemini-3.5-flash-lite',           # ~0.61s (Siêu tốc & sub-second)
+    'gemini-flash-lite-latest',        # ~0.80s (Sub-second)
     'gemini-3.1-flash-lite-preview',    # ~0.92s
     'gemini-3.1-flash-lite',            # ~1.07s
-    'gemini-3.5-flash-lite',            # ~1.14s
-    'gemini-3.7-flash',                 # ~1.50s
-    'gemini-3.6-flash',
+    'gemini-3.8-flash',                 # ~1.32s
+    'gemini-3.7-flash',                 # ~1.95s
 ]
 
 # Built-in instant dictionary database for instant lookup
@@ -278,7 +278,7 @@ class RealtimeService:
 - "example": natural English example sentence
 Respond with valid JSON only."""
 
-                res = model.generate_content(prompt)
+                res = await asyncio.to_thread(model.generate_content, prompt)
                 clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
                 result_json = json.loads(clean_json_str)
                 self.response_cache[cache_key] = result_json
@@ -297,32 +297,75 @@ Respond with valid JSON only."""
         return fallback_res
 
     async def get_smart_suggestions(self, last_ai_message: str, conversation_history: list = None) -> list:
-        """Sinh 3 câu phản xạ nhanh thông dụng cho người học theo ngữ cảnh bằng Gemini"""
-        clean_last = (last_ai_message or "").strip()
+        """Sinh 3 câu phản xạ nhanh thông dụng cho người học theo ngữ cảnh tức thì (0ms, 0 quota cost)"""
+        clean_last = (last_ai_message or "").strip().lower()
+        if not clean_last:
+            return [
+                "Could you explain more about that?",
+                "That sounds very interesting!",
+                "What do you think about that?"
+            ]
 
-        if clean_last:
-            for model_name in AVAILABLE_GEMINI_MODELS[:3]:
-                if not self._is_model_available(model_name):
-                    continue
-                try:
-                    model = self._get_model(model_name)
-                    prompt = f"""The AI just said: "{clean_last}"
-Generate exactly 3 natural, short English reply suggestions (under 7 words each) that an English learner might say next to continue this conversation smoothly.
-Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 3"]}}"""
-
-                    res = await asyncio.to_thread(model.generate_content, prompt)
-                    clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
-                    data = json.loads(clean_json_str)
-                    if data.get("suggestions") and len(data["suggestions"]) >= 3:
-                        return data["suggestions"][:3]
-                except Exception as e:
-                    logger.warning(f"Model '{model_name}' suggestions error: {e}")
-                    self._mark_model_failed(model_name, 90)
+        # Instant 0ms Contextual Pattern Matching
+        if "c++" in clean_last or "code" in clean_last or "program" in clean_last:
+            return [
+                "How do variables work in C++?",
+                "Can you give me a simple example?",
+                "Is C++ easy for beginners?"
+            ]
+        if any(w in clean_last for w in ["tired", "exhausted", "sleep", "rest", "drained"]):
+            return [
+                "I had a very long day.",
+                "I should get some rest soon.",
+                "A hot cup of tea sounds nice!"
+            ]
+        if any(w in clean_last for w in ["how are you", "how r u", "how is your day"]):
+            return [
+                "I'm doing great, thank you!",
+                "Pretty good, how about you?",
+                "A bit busy, but I'm fine!"
+            ]
+        if "name" in clean_last or "call me" in clean_last or "tên" in clean_last:
+            return [
+                "Nice to meet you, Tutor!",
+                "Can we practice everyday English?",
+                "What should we start with today?"
+            ]
+        if any(w in clean_last for w in ["food", "order", "restaurant", "menu", "eat"]):
+            return [
+                "Could I see the menu, please?",
+                "What is today's special dish?",
+                "Can I have the bill, please?"
+            ]
+        if clean_last.endswith("?"):
+            if "what" in clean_last:
+                return [
+                    "I'd love to learn more about that.",
+                    "Could you give me a clear example?",
+                    "That sounds very interesting to me!"
+                ]
+            if "where" in clean_last:
+                return [
+                    "I live in Vietnam.",
+                    "In my lovely hometown.",
+                    "Right here in the city center."
+                ]
+            if "why" in clean_last:
+                return [
+                    "Because I want to speak fluently.",
+                    "It really helps my daily career.",
+                    "It's a big passion of mine."
+                ]
+            return [
+                "Yes, absolutely!",
+                "Not really, to be honest.",
+                "Sometimes, depends on the day."
+            ]
 
         return [
             "Could you explain more about that?",
             "That sounds very interesting!",
-            "What do you think about that?"
+            "What would you recommend next?"
         ]
 
     async def translate_text(self, text: str, target_lang: str = "vi") -> str:
@@ -334,10 +377,12 @@ Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 
 
         if clean_text:
             for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+                if not self._is_model_available(model_name):
+                    continue
                 try:
                     model = self._get_model(model_name)
                     prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
-                    res = model.generate_content(prompt)
+                    res = await asyncio.to_thread(model.generate_content, prompt)
                     trans = res.text.strip().strip('"')
                     self.response_cache[cache_key] = trans
                     return trans
@@ -388,13 +433,15 @@ Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 
             return "AI chưa nghe rõ bạn đọc. Vui lòng thử đọc lại câu mẫu nhé."
 
         for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+            if not self._is_model_available(model_name):
+                continue
             try:
                 model = self._get_model(model_name)
                 prompt = f"""You are an encouraging English tutor.
 Target sentence: "{clean_exp}"
 Learner said: "{clean_user}"
 Provide a friendly 1-sentence pronunciation evaluation in Vietnamese under 25 words."""
-                res = model.generate_content(prompt)
+                res = await asyncio.to_thread(model.generate_content, prompt)
                 if res and res.text:
                     return res.text.strip().replace('"', '')
             except Exception as e:
