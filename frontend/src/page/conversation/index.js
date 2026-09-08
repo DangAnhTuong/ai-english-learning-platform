@@ -118,6 +118,9 @@ function Conversation() {
     const [shadowingMicActive, setShadowingMicActive] = useState(false);
     const shadowingRecorderRef = useRef(null);
     const shadowingChunksRef = useRef([]);
+    const shadowingRecognitionRef = useRef(null);
+    const shadowingTranscriptRef = useRef('');
+    const [shadowingLiveTranscript, setShadowingLiveTranscript] = useState('');
     const [shadowingAttempts, setShadowingAttempts] = useState({}); // Lưu số lần đọc: { 0: 1, 1: 2... }
 
     const {
@@ -288,8 +291,15 @@ function Conversation() {
     // --- HÀM XỬ LÝ MIC CHO CHẾ ĐỘ LUYỆN TẬP (SHADOWING) ---
     const handleShadowingMic = async () => {
         if (shadowingMicActive) {
-            // Tắt mic và gửi lấy transcript
-            shadowingRecorderRef.current.stop();
+            // Tắt mic và lấy transcript
+            if (shadowingRecognitionRef.current) {
+                try {
+                    shadowingRecognitionRef.current.stop();
+                } catch (e) {}
+            }
+            if (shadowingRecorderRef.current && shadowingRecorderRef.current.state !== 'inactive') {
+                shadowingRecorderRef.current.stop();
+            }
             setShadowingMicActive(false);
         } else {
             // Bật mic
@@ -300,48 +310,120 @@ function Conversation() {
                     [shadowingIndex]: (prev[shadowingIndex] || 0) + 1
                 }));
 
+                shadowingTranscriptRef.current = '';
+                setShadowingLiveTranscript('');
+
+                // 1. Khởi tạo Web Speech API để nhận diện tức thì trên trình duyệt
+                const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+                if (SpeechRec) {
+                    try {
+                        const rec = new SpeechRec();
+                        rec.continuous = true;
+                        rec.interimResults = true;
+                        rec.lang = 'en-US';
+
+                        rec.onresult = (event) => {
+                            let interim = '';
+                            let final = '';
+                            for (let i = 0; i < event.results.length; ++i) {
+                                if (event.results[i].isFinal) {
+                                    final += event.results[i][0].transcript + ' ';
+                                } else {
+                                    interim += event.results[i][0].transcript;
+                                }
+                            }
+                            const spoken = (final + interim).replace(/\s+/g, ' ').trim();
+                            if (spoken) {
+                                shadowingTranscriptRef.current = spoken;
+                                setShadowingLiveTranscript(spoken);
+                            }
+                        };
+
+                        rec.onerror = (err) => {
+                            console.warn('SpeechRecognition error:', err?.error);
+                        };
+
+                        rec.onend = () => {
+                            // Recognition stopped
+                        };
+
+                        shadowingRecognitionRef.current = rec;
+                        rec.start();
+                    } catch (recErr) {
+                        console.warn('SpeechRecognition initialization error:', recErr);
+                    }
+                }
+
+                // 2. Thu âm MediaStream để gửi kèm audio lên AI Server chấm phát âm
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 shadowingRecorderRef.current = new MediaRecorder(stream);
                 shadowingChunksRef.current = [];
 
-                shadowingRecorderRef.current.ondataavailable = (e) => shadowingChunksRef.current.push(e.data);
+                shadowingRecorderRef.current.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) {
+                        shadowingChunksRef.current.push(e.data);
+                    }
+                };
 
                 shadowingRecorderRef.current.onstop = async () => {
                     const blob = new Blob(shadowingChunksRef.current, { type: 'audio/webm' });
                     stream.getTracks().forEach(t => t.stop());
+                    setShadowingLiveTranscript('');
 
                     const lines = selectedConversation.sample_conversation || selectedConversation.lines || [];
                     const currentLine = lines[shadowingIndex];
                     const expectedText = currentLine.content || currentLine.message || currentLine.text;
 
-                    message.loading({ content: 'AI đang chấm điểm...', key: 'eval', duration: 0 });
+                    message.loading({ content: 'AI đang chấm điểm phát âm...', key: 'eval', duration: 0 });
 
                     try {
                         const formData = new FormData();
-                        formData.append('audio', blob);
+                        formData.append('audio', blob, 'shadowing.webm');
                         formData.append('text', expectedText);
 
-                        // Gọi API để lấy transcript (Vẫn dùng API cũ, nhưng ta tự chấm điểm ở Frontend)
+                        const localSpoken = (shadowingTranscriptRef.current || '').trim();
+                        if (localSpoken) {
+                            formData.append('transcript', localSpoken);
+                        }
+
+                        // Gọi AI backend chấm điểm
                         const res = await conversationService.evaluatePronunciation(formData);
                         message.destroy('eval');
 
-                        const transcript = res?.transcript || "No transcript detected";
-                        
+                        // Ưu tiên:
+                        // 1. Transcript từ Backend (Deepgram/Gemini)
+                        // 2. Transcript từ Client (Web Speech API)
+                        let transcript = (res?.transcript || '').trim();
+                        if (!transcript && localSpoken) {
+                            transcript = localSpoken;
+                        }
+
+                        // Nếu không thu được giọng nói (im lặng hoặc mic chưa bắt tiếng)
+                        if (!transcript) {
+                            message.warning('AI chưa nghe rõ bạn đọc. Vui lòng bật mic và đọc to rõ ràng hơn nhé!');
+                            return;
+                        }
+
                         // ==========================================
                         // LOGIC CHẤM ĐIỂM VÀ BÔI MÀU (THỰC THI TẠI REACT)
                         // ==========================================
-                        const cleanStr = (s) => s.toLowerCase().replace(/[^\w\s]/gi, '');
-                        const expWords = cleanStr(expectedText).split(' ');
-                        const actWords = cleanStr(transcript).split(' ');
-                        const origWords = expectedText.split(' '); // Giữ nguyên chữ gốc có viết hoa, dấu phẩy
+                        const cleanStr = (s) => s.toLowerCase().replace(/[^\w\s]/gi, '').replace(/\s+/g, ' ').trim();
+                        const expWords = cleanStr(expectedText).split(' ').filter(Boolean);
+                        const actWords = cleanStr(transcript).split(' ').filter(Boolean);
+                        const origWords = expectedText.split(' ').filter(Boolean); // Giữ nguyên chữ gốc có viết hoa, dấu phẩy
 
                         // Tính khoảng cách Levenshtein (Số bước sửa để giống nhau)
                         const distance = levenshtein.get(expWords.join(' '), actWords.join(' '));
                         const maxLength = Math.max(expWords.join(' ').length, actWords.join(' ').length);
-                        
+
                         // Tính điểm % (0 - 100)
                         let calculatedScore = Math.max(0, 100 - (distance / maxLength * 100));
                         calculatedScore = Math.round(calculatedScore);
+
+                        // Sử dụng điểm số chính xác từ backend nếu có (difflib SequenceMatcher), hoặc điểm Levenshtein
+                        if (res?.score !== undefined && res?.score !== null && res?.score > 0) {
+                            calculatedScore = res.score;
+                        }
 
                         // LUẬT 1: Sai hoàn toàn (< 20%) -> 0 điểm
                         if (calculatedScore < 20) {
@@ -349,23 +431,25 @@ function Conversation() {
                         }
 
                         // LUẬT 2: Phân tích từng chữ Xanh/Đỏ
-                        const wordsResult = origWords.map((word, i) => {
+                        const wordsResult = origWords.map((word) => {
                             const cleanWord = cleanStr(word);
                             // Tìm xem chữ này có xuất hiện trong câu đọc của SV không
                             const isCorrect = actWords.includes(cleanWord);
                             return { word, status: isCorrect ? 'correct' : 'incorrect' };
                         });
 
-                        // Sinh Feedback động
-                        let feedback = "AI không đưa ra nhận xét.";
-                        if (calculatedScore === 0) {
-                            feedback = "Bạn đọc sai hoàn toàn so với câu gốc rồi, vui lòng tập trung nghe lại nhé!";
-                        } else if (calculatedScore >= 80) {
-                            feedback = "Phát âm rất tốt! Bạn đã nắm bắt được âm điệu.";
-                        } else if (calculatedScore >= 50) {
-                            feedback = "Khá tốt, nhưng chú ý các từ màu đỏ nhé.";
-                        } else {
-                            feedback = "Cần cố gắng hơn. Chú ý các từ bị bôi đỏ.";
+                        // Sinh Feedback động hoặc dùng nhận xét của AI
+                        let feedback = (res?.feedback || '').trim();
+                        if (!feedback || feedback === "AI chưa nghe rõ bạn đọc. Vui lòng thử lại!") {
+                            if (calculatedScore === 0) {
+                                feedback = "Bạn đọc chưa khớp với câu gốc. Hãy nghe lại audio mẫu và thử lại nhé!";
+                            } else if (calculatedScore >= 80) {
+                                feedback = "Phát âm rất tốt! Bạn đã phát âm chuẩn xác và tự nhiên.";
+                            } else if (calculatedScore >= 50) {
+                                feedback = "Khá tốt! Chú ý các từ được bôi đỏ để phát âm rõ hơn nhé.";
+                            } else {
+                                feedback = "Cần cố gắng hơn. Hãy chú ý các từ bị bôi đỏ và luyện tập lại.";
+                            }
                         }
                         // ==========================================
 
@@ -375,19 +459,19 @@ function Conversation() {
                             width: 600,
                             content: (
                                 <div style={{ marginTop: 15 }}>
-                                    <p><strong>Bạn đã nói:</strong> <span style={{ color: '#888', fontStyle: 'italic' }}>"{transcript}"</span></p>
+                                    <p><strong>Bạn đã nói:</strong> <span style={{ color: '#1890ff', fontStyle: 'italic', fontWeight: 500 }}>"{transcript}"</span></p>
                                     
                                     <div style={{ padding: '15px', background: '#f5f5f5', borderRadius: '8px', marginBottom: '15px' }}>
                                         <p style={{ margin: '0 0 10px 0' }}><strong>Đánh giá chi tiết:</strong></p>
                                         <p style={{ fontSize: '18px', margin: 0, lineHeight: '1.6' }}>
                                             {calculatedScore === 0 ? (
-                                                <span style={{ color: '#f5222d', fontWeight: 'bold' }}>Sai hoàn toàn! Vui lòng nghe lại mẫu.</span>
+                                                <span style={{ color: '#f5222d', fontWeight: 'bold' }}>Chưa chính xác! Vui lòng nghe lại câu mẫu.</span>
                                             ) : (
                                                 wordsResult.map((w, i) => (
                                                     <span 
                                                         key={i} 
                                                         style={{ 
-                                                            color: w.status === 'correct' ? '#52c41a' : '#f5222d', 
+                                                             color: w.status === 'correct' ? '#52c41a' : '#f5222d', 
                                                             textDecoration: w.status === 'incorrect' ? 'underline' : 'none',
                                                             marginRight: '6px',
                                                             fontWeight: w.status === 'incorrect' ? 'bold' : 'normal'
@@ -415,22 +499,48 @@ function Conversation() {
                                         message.success('Hoàn thành bài tập!');
                                     }
                                 } else {
-                                    // LUẬT 3: Đọc sai bắt đọc lại (Bật lại audio câu mẫu)
+                                    // Đọc sai bắt đọc lại (Bật lại audio câu mẫu)
                                     setTimeout(() => handlePlayLineAudio(currentLine, shadowingIndex), 500);
                                 }
                             }
                         });
                     } catch (e) {
                         message.destroy('eval');
-                        console.error("Lỗi API:", e);
-                        message.error('Máy chủ AI bận, vui lòng thử lại sau.');
+                        console.error("Lỗi API evaluatePronunciation:", e);
+                        // Nếu mạng lỗi nhưng đã có transcript từ Web Speech, vẫn chấm điểm được cho học viên!
+                        const localSpoken = (shadowingTranscriptRef.current || '').trim();
+                        if (localSpoken) {
+                            const cleanStr = (s) => s.toLowerCase().replace(/[^\w\s]/gi, '').replace(/\s+/g, ' ').trim();
+                            const expWords = cleanStr(expectedText).split(' ').filter(Boolean);
+                            const actWords = cleanStr(localSpoken).split(' ').filter(Boolean);
+                            const distance = levenshtein.get(expWords.join(' '), actWords.join(' '));
+                            const maxLength = Math.max(expWords.join(' ').length, actWords.join(' ').length);
+                            let localScore = Math.max(0, 100 - (distance / maxLength * 100));
+                            localScore = Math.round(localScore);
+
+                            Modal.info({
+                                title: `Kết quả (Offline): ${localScore}/100 Điểm`,
+                                width: 600,
+                                content: (
+                                    <div style={{ marginTop: 15 }}>
+                                        <p><strong>Bạn đã nói:</strong> <span style={{ color: '#1890ff', fontStyle: 'italic' }}>"{localSpoken}"</span></p>
+                                        <p><strong>Điểm số:</strong> {localScore}/100</p>
+                                        <p><em>(Kết quả được chấm điểm trực tiếp trên trình duyệt)</em></p>
+                                    </div>
+                                ),
+                                okText: 'Đóng'
+                            });
+                        } else {
+                            message.error('Không thể kết nối máy chủ AI, vui lòng thử lại sau.');
+                        }
                     }
                 };
 
                 shadowingRecorderRef.current.start();
                 setShadowingMicActive(true);
             } catch (err) {
-                message.error('Vui lòng cấp quyền Microphone!');
+                console.error("Mic access error:", err);
+                message.error('Vui lòng cấp quyền Microphone để đọc câu mẫu!');
             }
         }
     };
@@ -829,16 +939,23 @@ function Conversation() {
                                                     )}
 
                                                     {isShadowingMode && shadowingIndex === index && (
-                                                        <Button
-                                                            type={shadowingMicActive ? "primary" : "default"}
-                                                            danger={shadowingMicActive}
-                                                            shape="round"
-                                                            size="small"
-                                                            icon={shadowingMicActive ? <StopOutlined /> : <AudioOutlined />}
-                                                            onClick={handleShadowingMic}
-                                                        >
-                                                            {shadowingMicActive ? "Dừng ghi âm" : "Bấm để đọc"}
-                                                        </Button>
+                                                        <>
+                                                            <Button
+                                                                type={shadowingMicActive ? "primary" : "default"}
+                                                                danger={shadowingMicActive}
+                                                                shape="round"
+                                                                size="small"
+                                                                icon={shadowingMicActive ? <StopOutlined /> : <AudioOutlined />}
+                                                                onClick={handleShadowingMic}
+                                                            >
+                                                                {shadowingMicActive ? "Dừng & Chấm điểm" : "Bấm để đọc"}
+                                                            </Button>
+                                                            {shadowingMicActive && (
+                                                                <Tag color="processing" style={{ margin: 0, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                                    🎙️ {shadowingLiveTranscript ? `"${shadowingLiveTranscript}"` : "Đang lắng nghe..."}
+                                                                </Tag>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </Space>
                                             </div>

@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 _ENCODED_KEY = b"QVEuQWI4Uk42SzJpVU1GNHRYWFdLQzRZaXl4QzRwNHFxYnRSWmt3bEdKam1nZ1g1UUZfQ2c="
 DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
 
+_ENCODED_DEEPGRAM_KEY = b"ZWY4OWI0ZmUxOGM4NzYxOGJmNDk5NjZkZmZjNDY2YmFkOGZkYmMwYw=="
+DEFAULT_DEEPGRAM_KEY = base64.b64decode(_ENCODED_DEEPGRAM_KEY).decode()
+
 # Danh sách pool models Gemini dự phòng đa tầng (High Availability)
 # Sắp xếp theo thứ tự tốc độ cao nhất (sub-second) và hạn mức quota cao
 AVAILABLE_GEMINI_MODELS = [
@@ -401,16 +404,19 @@ Respond with valid JSON only."""
         return f"Bản dịch: {clean_text}"
 
     async def process_audio_transcription(self, audio_data: bytes, content_type: str = "audio/webm") -> Dict[str, Any]:
-        """Chuyển đổi âm thanh sang văn bản bằng Deepgram Nova-2 / Faster-Whisper"""
-        deepgram_key = os.getenv("DEEPGRAM_API_KEY")
+        """Chuyển đổi âm thanh sang văn bản bằng Deepgram Nova-2 & Gemini Multimodal STT fallback"""
+        deepgram_key = os.getenv("DEEPGRAM_API_KEY") or DEFAULT_DEEPGRAM_KEY
+        clean_content_type = (content_type or "audio/webm").split(";")[0].strip()
+
+        # 1. Thử Deepgram Nova-2 (STT chuyên dụng, độ trễ <1s)
         if deepgram_key:
             try:
                 import httpx
                 headers = {
                     "Authorization": f"Token {deepgram_key}",
-                    "Content-Type": content_type or "audio/webm"
+                    "Content-Type": clean_content_type or "audio/webm"
                 }
-                async with httpx.AsyncClient(timeout=15.0) as client:
+                async with httpx.AsyncClient(timeout=10.0) as client:
                     res = await client.post(
                         "https://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=true",
                         headers=headers,
@@ -418,20 +424,52 @@ Respond with valid JSON only."""
                     )
                     if res.status_code == 200:
                         data = res.json()
-                        transcript = data["results"]["channels"][0]["alternatives"][0]["transcript"]
-                        logger.info(f"Deepgram STT successful: '{transcript}'")
-                        return {"transcript": transcript.strip()}
+                        channels = data.get("results", {}).get("channels", [])
+                        if channels and "alternatives" in channels[0] and channels[0]["alternatives"]:
+                            transcript = channels[0]["alternatives"][0].get("transcript", "")
+                            if transcript and transcript.strip():
+                                logger.info(f"Deepgram STT successful: '{transcript}'")
+                                return {"transcript": transcript.strip()}
+                    else:
+                        logger.warning(f"Deepgram STT HTTP {res.status_code}: {res.text[:100]}")
             except Exception as e:
                 logger.warning(f"Deepgram STT error: {e}")
 
+        # 2. Fallback sang Google Gemini Multimodal STT (0 chi phí, không phụ thuộc server)
         try:
-            from app.services.deepgram_service import DeepgramService
-            deepgram = DeepgramService()
-            transcript = await deepgram.speech_to_text(audio_data, language="en")
-            return {"transcript": (transcript or "").strip()}
+            import base64
+            audio_b64 = base64.b64encode(audio_data).decode("utf-8")
+            stt_mime = clean_content_type if clean_content_type in ["audio/mp3", "audio/wav", "audio/ogg", "audio/webm", "audio/aac"] else "audio/webm"
+
+            for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+                if not self._is_model_available(model_name):
+                    continue
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}"
+                payload = {
+                    "contents": [{
+                        "parts": [
+                            {"inlineData": {"mimeType": stt_mime, "data": audio_b64}},
+                            {"text": "Transcribe the spoken audio verbatim in English. Return only the plain transcribed words, no explanations or punctuation."}
+                        ]
+                    }],
+                    "generationConfig": {"maxOutputTokens": 60, "temperature": 0.0}
+                }
+                import httpx
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    res = await client.post(url, json=payload)
+                    if res.status_code == 200:
+                        cand = res.json().get("candidates", [])
+                        if cand and "content" in cand[0]:
+                            parts = cand[0]["content"].get("parts", [])
+                            if parts and "text" in parts[0]:
+                                text_trans = parts[0]["text"].strip()
+                                if text_trans:
+                                    logger.info(f"Gemini Multimodal STT ('{model_name}') successful: '{text_trans}'")
+                                    return {"transcript": text_trans}
         except Exception as e:
-            logger.error(f"Fallback STT error: {e}")
-            return {"transcript": ""}
+            logger.warning(f"Gemini Multimodal STT fallback error: {e}")
+
+        return {"transcript": ""}
 
     async def get_pronunciation_feedback(self, expected_text: str, user_transcript: str) -> str:
         """Đưa ra nhận xét phát âm bằng Gemini"""

@@ -3,9 +3,12 @@ from fastapi.responses import JSONResponse, StreamingResponse
 import json
 import os
 import difflib # Thêm cái này để thuật toán tính điểm chạy được
-from typing import Dict, Any
+from typing import Dict, Any, Optional
+import logging
 import asyncio
 from app.services.realtime_service import realtime_service
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -141,19 +144,22 @@ async def pronunciation_feedback(request: Dict[str, Any]):
 
 @router.post("/pronunciation")
 async def pronunciation_feedback_real(
-    audio: UploadFile = File(...), 
-    text: str = Form(...) # Dòng này mà thiếu Form ở import là sập server ngay
+    audio: UploadFile = File(None), 
+    text: str = Form(...),
+    transcript: Optional[str] = Form(None)
 ):
     try:
-        audio_content = await audio.read()
-        # Dùng Whisper dịch giọng nói
-        stt_result = await realtime_service.process_audio_transcription(audio_content, audio.content_type)
-        user_transcript = stt_result.get("transcript", "")
+        user_transcript = transcript.strip() if isinstance(transcript, str) else ""
+        if not user_transcript and audio:
+            audio_content = await audio.read()
+            if audio_content and len(audio_content) > 100:
+                stt_result = await realtime_service.process_audio_transcription(audio_content, audio.content_type)
+                user_transcript = stt_result.get("transcript", "").strip()
 
         if not user_transcript:
             return {"score": 0, "transcript": "", "feedback": "AI chưa nghe rõ bạn đọc. Vui lòng thử lại!"}
 
-        # Nhận xét từ GPT
+        # Nhận xét từ Gemini
         feedback_text = await realtime_service.get_pronunciation_feedback(text, user_transcript)
 
         # Tính điểm thật bằng difflib
