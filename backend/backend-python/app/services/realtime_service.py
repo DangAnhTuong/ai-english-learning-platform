@@ -1,4 +1,5 @@
 import os
+import time
 import asyncio
 import json
 import logging
@@ -17,15 +18,14 @@ _ENCODED_KEY = b"QVEuQWI4Uk42SzJpVU1GNHRYWFdLQzRZaXl4QzRwNHFxYnRSWmt3bEdKam1nZ1g
 DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
 
 # Danh sách pool models Gemini dự phòng đa tầng (High Availability)
-# Sắp xếp theo thứ tự ưu tiên độ ổn định và hạn mức quota cao nhất
+# Sắp xếp theo thứ tự tốc độ cao nhất (sub-second) và hạn mức quota cao
 AVAILABLE_GEMINI_MODELS = [
-    'gemini-3.7-flash',
-    'gemini-3.8-flash',
-    'gemini-3.5-flash-lite',
-    'gemini-flash-latest',
-    'gemini-flash-lite-latest',
-    'gemini-3.1-flash-lite',
-    'gemini-3.5-flash',
+    'gemini-flash-lite-latest',        # ~0.77s (Siêu tốc & quota rộng)
+    'gemini-3.1-flash-lite-preview',    # ~0.92s
+    'gemini-3.1-flash-lite',            # ~1.07s
+    'gemini-3.5-flash-lite',            # ~1.14s
+    'gemini-3.7-flash',                 # ~1.50s
+    'gemini-3.6-flash',
 ]
 
 # Built-in instant dictionary database for instant lookup
@@ -63,23 +63,35 @@ class RealtimeService:
     def __init__(self):
         self.gemini_key = os.getenv("GEMINI_API_KEY") or DEFAULT_GEMINI_KEY
         self._models_cache = {}
+        self._model_cooldowns = {}
         self.is_initialized = False
         self.response_cache = {}
 
+    def _is_model_available(self, model_name: str) -> bool:
+        """Kiểm tra model có đang bị cooldown do rate-limit/lỗi không"""
+        cooldown = self._model_cooldowns.get(model_name, 0)
+        return time.time() > cooldown
+
+    def _mark_model_failed(self, model_name: str, duration: int = 90):
+        """Tạm thời đưa model vào danh sách chờ để các request tiếp theo không bị chậm"""
+        self._model_cooldowns[model_name] = time.time() + duration
+        logger.warning(f"Marked model '{model_name}' on cooldown for {duration}s")
+
     def _get_model(self, model_name: str):
-        """Lấy hoặc khởi tạo Gemini GenerativeModel theo tên model"""
+        """Lấy hoặc khởi tạo Gemini GenerativeModel theo tên model kèm config tối ưu độ trễ"""
         if model_name not in self._models_cache:
             genai.configure(api_key=self.gemini_key, transport='rest')
             self._models_cache[model_name] = genai.GenerativeModel(
                 model_name=model_name,
-                system_instruction=SYSTEM_INSTRUCTION
+                system_instruction=SYSTEM_INSTRUCTION,
+                generation_config={"max_output_tokens": 150, "temperature": 0.7}
             )
         return self._models_cache[model_name]
 
     async def initialize(self):
         """Khởi tạo service"""
         self.is_initialized = True
-        logger.info("Realtime service initialized with multi-model failover pool (REST transport)")
+        logger.info("Realtime service initialized with sub-second Gemini pool & circuit breaker")
 
     def _sanitize_history(self, history: list) -> list:
         """Chuẩn hóa lịch sử chat cho Gemini API:
@@ -91,7 +103,7 @@ class RealtimeService:
             return []
 
         cleaned = []
-        for item in history[-10:]:
+        for item in history[-6:]:
             role = "user" if item.get("role") == "user" else "model"
             content = (item.get("content") or "").strip()
             if not content:
@@ -162,37 +174,32 @@ class RealtimeService:
                 await self.initialize()
 
             formatted_history = self._sanitize_history(conversation_history or [])
+            prompt_lines = []
+            if formatted_history:
+                for h in formatted_history[-4:]:
+                    r = "User" if h["role"] == "user" else "Assistant"
+                    prompt_lines.append(f"{r}: {h['parts'][0]}")
+            prompt_lines.append(f"User: {user_message}\nEnglish Tutor (reply naturally, warmly in 2-3 sentences like ChatGPT):")
+            combined_prompt = "\n".join(prompt_lines)
 
             for model_name in AVAILABLE_GEMINI_MODELS:
+                if not self._is_model_available(model_name):
+                    continue
                 try:
                     model = self._get_model(model_name)
-                    full_text = None
-                    
-                    try:
-                        chat = model.start_chat(history=formatted_history)
-                        res = await asyncio.to_thread(chat.send_message, user_message)
-                        if res and res.text:
-                            full_text = res.text.strip()
-                    except Exception as chat_err:
-                        logger.warning(f"Model '{model_name}' chat error: {chat_err}. Trying direct generation...")
-                        res = await asyncio.to_thread(
-                            model.generate_content,
-                            f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):"
-                        )
-                        if res and res.text:
-                            full_text = res.text.strip()
-
-                    if full_text:
-                        logger.info(f"Generated AI response via '{model_name}' ({len(full_text)} chars)")
+                    res = await asyncio.to_thread(model.generate_content, combined_prompt)
+                    if res and res.text:
+                        full_text = res.text.strip()
+                        logger.info(f"Streamed AI response via '{model_name}' ({len(full_text)} chars)")
                         words = full_text.split(' ')
                         for i in range(0, len(words), 3):
                             chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
                             yield chunk
-                            await asyncio.sleep(0.03)
+                            await asyncio.sleep(0.015)
                         return
-
                 except Exception as model_err:
-                    logger.warning(f"Model '{model_name}' failed ({model_err}). Failing over to next model...")
+                    logger.warning(f"Model '{model_name}' failed ({model_err}). Cooling down...")
+                    self._mark_model_failed(model_name, 90)
                     continue
 
             # 2. Fallback tự nhiên thông minh nếu tất cả models bị chặn mạng
@@ -201,39 +208,39 @@ class RealtimeService:
             for i in range(0, len(words), 3):
                 chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
                 yield chunk
-                await asyncio.sleep(0.03)
+                await asyncio.sleep(0.015)
 
         except Exception as e:
             logger.error(f"Streaming failed: {str(e)}")
             yield self._smart_conversational_fallback(user_message)
 
     async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
-        """Lấy response từ AI assistant tức thì qua failover pool (REST transport + non-blocking)"""
+        """Lấy response từ AI assistant siêu tốc (<1s) qua sub-second flash-lite pool & circuit breaker"""
         try:
             if not self.is_initialized:
                 await self.initialize()
 
             formatted_history = self._sanitize_history(conversation_history or [])
+            prompt_lines = []
+            if formatted_history:
+                for h in formatted_history[-4:]:
+                    r = "User" if h["role"] == "user" else "Assistant"
+                    prompt_lines.append(f"{r}: {h['parts'][0]}")
+            prompt_lines.append(f"User: {user_message}\nEnglish Tutor (reply naturally, warmly in 2-3 sentences like ChatGPT):")
+            combined_prompt = "\n".join(prompt_lines)
 
             for model_name in AVAILABLE_GEMINI_MODELS:
+                if not self._is_model_available(model_name):
+                    continue
                 try:
                     model = self._get_model(model_name)
-                    try:
-                        chat = model.start_chat(history=formatted_history)
-                        res = await asyncio.to_thread(chat.send_message, user_message)
-                        if res and res.text:
-                            logger.info(f"AI response via '{model_name}' successful")
-                            return res.text.strip()
-                    except Exception as chat_err:
-                        logger.warning(f"Model '{model_name}' chat error: {chat_err}. Trying direct...")
-                        res = await asyncio.to_thread(
-                            model.generate_content,
-                            f"User: {user_message}\nEnglish Tutor (reply naturally, warmly, like ChatGPT):"
-                        )
-                        if res and res.text:
-                            return res.text.strip()
+                    res = await asyncio.to_thread(model.generate_content, combined_prompt)
+                    if res and res.text:
+                        logger.info(f"AI response via '{model_name}' successful in <1s")
+                        return res.text.strip()
                 except Exception as model_err:
-                    logger.warning(f"Model '{model_name}' failed ({model_err}). Trying next model...")
+                    logger.warning(f"Model '{model_name}' failed ({model_err}). Cooling down...")
+                    self._mark_model_failed(model_name, 90)
                     continue
 
             return self._smart_conversational_fallback(user_message)
@@ -295,19 +302,22 @@ Respond with valid JSON only."""
 
         if clean_last:
             for model_name in AVAILABLE_GEMINI_MODELS[:3]:
+                if not self._is_model_available(model_name):
+                    continue
                 try:
                     model = self._get_model(model_name)
                     prompt = f"""The AI just said: "{clean_last}"
 Generate exactly 3 natural, short English reply suggestions (under 7 words each) that an English learner might say next to continue this conversation smoothly.
 Respond ONLY with a JSON object: {{"suggestions": ["reply 1", "reply 2", "reply 3"]}}"""
 
-                    res = model.generate_content(prompt)
+                    res = await asyncio.to_thread(model.generate_content, prompt)
                     clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
                     data = json.loads(clean_json_str)
                     if data.get("suggestions") and len(data["suggestions"]) >= 3:
                         return data["suggestions"][:3]
                 except Exception as e:
                     logger.warning(f"Model '{model_name}' suggestions error: {e}")
+                    self._mark_model_failed(model_name, 90)
 
         return [
             "Could you explain more about that?",

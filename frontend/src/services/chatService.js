@@ -109,11 +109,16 @@ export const chatService = {
                 const fullText = result.response;
                 const words = fullText.split(' ');
                 
-                // Typewriter animation: phát từng cụm từ 1-2 từ với độ trễ 25ms tạo hiệu ứng ChatGPT tự nhiên
-                for (let i = 0; i < words.length; i += 2) {
-                    const chunk = words.slice(i, i + 2).join(' ') + (i + 2 < words.length ? ' ' : '');
+                // Phát ngay cụm từ đầu tiên tức thì (0ms) để người dùng thấy AI phản hồi ngay
+                const firstBatchSize = Math.min(3, words.length);
+                const firstChunk = words.slice(0, firstBatchSize).join(' ') + (words.length > firstBatchSize ? ' ' : '');
+                onChunk(firstChunk);
+
+                // Sau đó stream siêu tốc các cụm 3 từ với nhịp 12ms mượt mà
+                for (let i = firstBatchSize; i < words.length; i += 3) {
+                    const chunk = words.slice(i, i + 3).join(' ') + (i + 3 < words.length ? ' ' : '');
                     onChunk(chunk);
-                    await new Promise(resolve => setTimeout(resolve, 25));
+                    await new Promise(resolve => setTimeout(resolve, 12));
                 }
                 return { success: true, text: fullText };
             }

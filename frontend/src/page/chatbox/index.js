@@ -252,11 +252,14 @@ function Chatbox() {
         setInputValue('');
         setIsTyping(true);
 
-        // 2. Sliding window context (last 8 messages)
-        const conversationHistory = messages.slice(-8).map(msg => ({
-            role: msg.sender === 'user' ? 'user' : 'assistant',
-            content: msg.text
-        }));
+        // 2. Sliding window context (last 4 valid non-empty messages for fast prompt processing)
+        const conversationHistory = messages
+            .filter(msg => msg.text && msg.text.trim())
+            .slice(-4)
+            .map(msg => ({
+                role: msg.sender === 'user' ? 'user' : 'assistant',
+                content: msg.text.trim()
+            }));
 
         const aiMsgId = Date.now() + 1;
         setMessages(prev => [...prev, { 
@@ -547,9 +550,15 @@ function Chatbox() {
                             )}
 
                             <div className="bubble-wrapper">
-                                <div className={`bubble ${msg.isError ? 'error' : ''}`}>
-                                    <WordLookupPopover text={msg.text} />
-                                </div>
+                                {msg.sender === 'ai' && !msg.text ? (
+                                    <div className="bubble typing-indicator">
+                                        <span></span><span></span><span></span>
+                                    </div>
+                                ) : (
+                                    <div className={`bubble ${msg.isError ? 'error' : ''}`}>
+                                        <WordLookupPopover text={msg.text} />
+                                    </div>
+                                )}
 
                                 {/* Bản dịch tiếng Việt nếu có */}
                                 {translations[msg.id] && (
@@ -612,15 +621,6 @@ function Chatbox() {
                             )}
                         </div>
                     ))}
-
-                    {isTyping && (
-                        <div className="message-item ai">
-                            <Avatar size={34} icon={<RobotOutlined />} style={{ backgroundColor: '#FF9C00', flexShrink: 0 }} />
-                            <div className="bubble typing-indicator">
-                                <span></span><span></span><span></span>
-                            </div>
-                        </div>
-                    )}
                     <div ref={messagesEndRef} />
                 </div>
 
