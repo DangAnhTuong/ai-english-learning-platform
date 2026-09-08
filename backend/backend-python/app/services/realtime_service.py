@@ -77,16 +77,40 @@ class RealtimeService:
         self._model_cooldowns[model_name] = time.time() + duration
         logger.warning(f"Marked model '{model_name}' on cooldown for {duration}s")
 
-    def _get_model(self, model_name: str):
-        """Lấy hoặc khởi tạo Gemini GenerativeModel theo tên model kèm config tối ưu độ trễ"""
-        if model_name not in self._models_cache:
-            genai.configure(api_key=self.gemini_key, transport='rest')
-            self._models_cache[model_name] = genai.GenerativeModel(
-                model_name=model_name,
-                system_instruction=SYSTEM_INSTRUCTION,
-                generation_config={"max_output_tokens": 150, "temperature": 0.7}
-            )
-        return self._models_cache[model_name]
+    async def _call_gemini_rest(self, model_name: str, prompt: str, system_instruction: str = None, max_tokens: int = 150) -> Optional[str]:
+        """Gọi trực tiếp Google Gemini REST API qua httpx không qua SDK để tránh 60s retry hang"""
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.gemini_key}"
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "maxOutputTokens": max_tokens,
+                "temperature": 0.7
+            }
+        }
+        if system_instruction:
+            payload["systemInstruction"] = {"parts": [{"text": system_instruction}]}
+
+        try:
+            import httpx
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                res = await client.post(url, json=payload)
+                if res.status_code == 200:
+                    data = res.json()
+                    candidates = data.get("candidates", [])
+                    if candidates and "content" in candidates[0]:
+                        parts = candidates[0]["content"].get("parts", [])
+                        if parts and "text" in parts[0]:
+                            return parts[0]["text"].strip()
+                elif res.status_code == 429:
+                    logger.warning(f"Model '{model_name}' returned 429 Quota Exceeded. Cooling down for 120s...")
+                    self._mark_model_failed(model_name, 120)
+                else:
+                    logger.warning(f"Model '{model_name}' HTTP {res.status_code}. Cooling down for 60s...")
+                    self._mark_model_failed(model_name, 60)
+        except Exception as e:
+            logger.warning(f"Model '{model_name}' request failed ({e}). Cooling down for 60s...")
+            self._mark_model_failed(model_name, 60)
+        return None
 
     async def initialize(self):
         """Khởi tạo service"""
@@ -185,22 +209,15 @@ class RealtimeService:
             for model_name in AVAILABLE_GEMINI_MODELS:
                 if not self._is_model_available(model_name):
                     continue
-                try:
-                    model = self._get_model(model_name)
-                    res = await asyncio.to_thread(model.generate_content, combined_prompt)
-                    if res and res.text:
-                        full_text = res.text.strip()
-                        logger.info(f"Streamed AI response via '{model_name}' ({len(full_text)} chars)")
-                        words = full_text.split(' ')
-                        for i in range(0, len(words), 3):
-                            chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
-                            yield chunk
-                            await asyncio.sleep(0.015)
-                        return
-                except Exception as model_err:
-                    logger.warning(f"Model '{model_name}' failed ({model_err}). Cooling down...")
-                    self._mark_model_failed(model_name, 90)
-                    continue
+                reply = await self._call_gemini_rest(model_name, combined_prompt, SYSTEM_INSTRUCTION, max_tokens=150)
+                if reply:
+                    logger.info(f"Streamed AI response via '{model_name}' ({len(reply)} chars)")
+                    words = reply.split(' ')
+                    for i in range(0, len(words), 3):
+                        chunk = " ".join(words[i:i+3]) + (" " if i + 3 < len(words) else "")
+                        yield chunk
+                        await asyncio.sleep(0.015)
+                    return
 
             # 2. Fallback tự nhiên thông minh nếu tất cả models bị chặn mạng
             fallback = self._smart_conversational_fallback(user_message)
@@ -215,7 +232,7 @@ class RealtimeService:
             yield self._smart_conversational_fallback(user_message)
 
     async def get_ai_response(self, user_message: str, conversation_history: list = None) -> str:
-        """Lấy response từ AI assistant siêu tốc (<1s) qua sub-second flash-lite pool & circuit breaker"""
+        """Lấy response từ AI assistant siêu tốc (<1.5s) qua sub-second flash-lite pool & circuit breaker"""
         try:
             if not self.is_initialized:
                 await self.initialize()
@@ -232,16 +249,10 @@ class RealtimeService:
             for model_name in AVAILABLE_GEMINI_MODELS:
                 if not self._is_model_available(model_name):
                     continue
-                try:
-                    model = self._get_model(model_name)
-                    res = await asyncio.to_thread(model.generate_content, combined_prompt)
-                    if res and res.text:
-                        logger.info(f"AI response via '{model_name}' successful in <1s")
-                        return res.text.strip()
-                except Exception as model_err:
-                    logger.warning(f"Model '{model_name}' failed ({model_err}). Cooling down...")
-                    self._mark_model_failed(model_name, 90)
-                    continue
+                reply = await self._call_gemini_rest(model_name, combined_prompt, SYSTEM_INSTRUCTION, max_tokens=150)
+                if reply:
+                    logger.info(f"AI response via '{model_name}' successful in <1.5s")
+                    return reply
 
             return self._smart_conversational_fallback(user_message)
         except Exception as e:
@@ -268,23 +279,24 @@ class RealtimeService:
             return res
 
         for model_name in AVAILABLE_GEMINI_MODELS[:3]:
-            try:
-                model = self._get_model(model_name)
-                prompt = f"""Define the English word '{clean_word}' in JSON format with keys:
+            if not self._is_model_available(model_name):
+                continue
+            prompt = f"""Define the English word '{clean_word}' in JSON format with keys:
 - "word": "{clean_word}"
 - "ipa": phonetic transcription (e.g. /həˈloʊ/)
 - "type": part of speech (noun/verb/adjective/adverb/phrase)
 - "meaning": clear Vietnamese translation
 - "example": natural English example sentence
 Respond with valid JSON only."""
-
-                res = await asyncio.to_thread(model.generate_content, prompt)
-                clean_json_str = res.text.strip().replace("```json", "").replace("```", "").strip()
-                result_json = json.loads(clean_json_str)
-                self.response_cache[cache_key] = result_json
-                return result_json
-            except Exception as e:
-                logger.warning(f"Model '{model_name}' lookup error: {e}")
+            res_text = await self._call_gemini_rest(model_name, prompt, max_tokens=120)
+            if res_text:
+                try:
+                    clean_json_str = res_text.replace("```json", "").replace("```", "").strip()
+                    result_json = json.loads(clean_json_str)
+                    self.response_cache[cache_key] = result_json
+                    return result_json
+                except Exception:
+                    pass
 
         fallback_res = {
             "word": clean_word,
@@ -379,15 +391,12 @@ Respond with valid JSON only."""
             for model_name in AVAILABLE_GEMINI_MODELS[:3]:
                 if not self._is_model_available(model_name):
                     continue
-                try:
-                    model = self._get_model(model_name)
-                    prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
-                    res = await asyncio.to_thread(model.generate_content, prompt)
-                    trans = res.text.strip().strip('"')
+                prompt = f"Dịch câu tiếng Anh sau sang tiếng Việt một cách tự nhiên và chuẩn xác. Chỉ trả về duy nhất bản dịch:\n\"{clean_text}\""
+                trans = await self._call_gemini_rest(model_name, prompt, max_tokens=80)
+                if trans:
+                    trans = trans.strip().strip('"')
                     self.response_cache[cache_key] = trans
                     return trans
-                except Exception as e:
-                    logger.warning(f"Model '{model_name}' translation error: {e}")
 
         return f"Bản dịch: {clean_text}"
 
@@ -435,17 +444,13 @@ Respond with valid JSON only."""
         for model_name in AVAILABLE_GEMINI_MODELS[:3]:
             if not self._is_model_available(model_name):
                 continue
-            try:
-                model = self._get_model(model_name)
-                prompt = f"""You are an encouraging English tutor.
+            prompt = f"""You are an encouraging English tutor.
 Target sentence: "{clean_exp}"
 Learner said: "{clean_user}"
 Provide a friendly 1-sentence pronunciation evaluation in Vietnamese under 25 words."""
-                res = await asyncio.to_thread(model.generate_content, prompt)
-                if res and res.text:
-                    return res.text.strip().replace('"', '')
-            except Exception as e:
-                logger.warning(f"Model '{model_name}' pronunciation feedback error: {e}")
+            res_text = await self._call_gemini_rest(model_name, prompt, max_tokens=60)
+            if res_text:
+                return res_text.strip().replace('"', '')
 
         import difflib
         ratio = difflib.SequenceMatcher(None, clean_exp.lower(), clean_user.lower()).ratio()
