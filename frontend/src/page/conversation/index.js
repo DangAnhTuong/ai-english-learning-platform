@@ -187,26 +187,23 @@ function Conversation() {
 
     // Load metadata khi component mount
     useEffect(() => {
-        if (user?.id) {
-            loadMetadata();
-        }
-    }, [user?.id, loadMetadata]);
+        loadMetadata();
+    }, [loadMetadata]);
 
     // Load scenarios khi component mount hoặc khi filter thay đổi
     useEffect(() => {
-        if (user?.id) {
-            const filters = { level: selectedLevel };
-            if (selectedTopic) {
-                filters.topic = selectedTopic;
-            }
-            loadScenarios(filters);
+        const filters = { level: selectedLevel };
+        if (selectedTopic) {
+            filters.topic = selectedTopic;
         }
+        loadScenarios(filters);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedLevel, selectedTopic, user?.id]);
+    }, [selectedLevel, selectedTopic]);
 
     // Connect WebSocket khi user đăng nhập
     useEffect(() => {
-        if (user?.id && !isConnected) {
+        const userId = user?.id || user?._id;
+        if (userId && !isConnected) {
             connectWebSocket();
         }
     }, [user, isConnected, connectWebSocket]);

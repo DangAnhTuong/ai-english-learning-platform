@@ -10,6 +10,7 @@ import { message } from 'antd';
  */
 export const useConversation = () => {
     const { user } = useSelector((state) => state.auth);
+    const userId = user?.id || user?._id;
     const [isConnected, setIsConnected] = useState(false);
     const [currentSession, setCurrentSession] = useState(null);
     const [conversationMessages, setConversationMessages] = useState([]);
@@ -47,7 +48,7 @@ export const useConversation = () => {
      * Kết nối WebSocket với cơ chế tự động kết nối lại thông minh
      */
     const connectWebSocket = useCallback(() => {
-        if (!user?.id) return;
+        if (!userId) return;
 
         // Xóa connection cũ nếu đang mở
         if (wsRef.current && (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING)) {
@@ -230,7 +231,7 @@ export const useConversation = () => {
             return;
         }
 
-        if (!user?.id) {
+        if (!userId) {
             message.error('Vui lòng đăng nhập');
             return;
         }
@@ -239,7 +240,7 @@ export const useConversation = () => {
             const message = {
                 type: conversationService.WS_MESSAGE_TYPES.START_CONVERSATION,
                 scenario_id: scenarioId,
-                user_id: user.id
+                user_id: userId
             };
 
             wsRef.current.send(JSON.stringify(message));
