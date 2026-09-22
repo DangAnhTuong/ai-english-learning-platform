@@ -1,11 +1,7 @@
 const mongoose = require('mongoose');
 
 // MongoDB Configuration
-const ATLAS_PRODUCTION_URI = 'mongodb+srv://danganhtuongg:Tuong2026Password123@tuong.kcpiojp.mongodb.net/english-learning?retryWrites=true&w=majority&appName=tuong';
-let mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI;
-if (!mongoURI || (process.env.NODE_ENV === 'production' && (mongoURI.includes('localhost') || mongoURI.includes('127.0.0.1')))) {
-    mongoURI = ATLAS_PRODUCTION_URI;
-}
+const mongoURI = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/english-learning';
 const mongooseOptions = {
     serverSelectionTimeoutMS: 15000, // Timeout after 15s for cloud clusters
     socketTimeoutMS: 45000, // Close sockets after 45s of inactivity

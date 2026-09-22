@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
-const Conversation = require('./src/models/conversation');
-const User = require('./src/models/userSchema');
+const Conversation = require('../src/models/conversation');
+const User = require('../src/models/userSchema');
 
 mongoose.connect('mongodb://localhost:27017/english-learning')
   .then(async () => {
