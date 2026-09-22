@@ -4,6 +4,7 @@ const courseRoutes = require('./course.routes');
 const conversationRoutes = require('./conversation.routes');
 const userRoutes = require('./user.routes');
 const orderRoutes = require('./order.routes');
+const paymentRoutes = require('./payment.routes');
 const subscriptionRoutes = require('./subscription.routes');
 const vocabularyRoutes = require('./vocabulary.routes');
 const levelRoutes = require('./level.routes');
@@ -30,6 +31,7 @@ router.use('/conversations', conversationRoutes);
 
 // Order & Payment routes
 router.use('/orders', orderRoutes);
+router.use('/payment', paymentRoutes);
 
 // Subscription routes
 router.use('/subscriptions', subscriptionRoutes);
