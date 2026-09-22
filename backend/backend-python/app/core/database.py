@@ -19,10 +19,12 @@ class Database:
     async def connect(self) -> None:
         """Connect to MongoDB"""
         if self._client is None:
-            atlas_default = "mongodb+srv://danganhtuongg:Tuong2026Password123@tuong.kcpiojp.mongodb.net/?retryWrites=true&w=majority&appName=tuong"
             mongodb_url = os.getenv("MONGODB_URL") or os.getenv("MONGO_URI")
-            if not mongodb_url or (os.getenv("ENVIRONMENT") == "production" and ("localhost" in mongodb_url or "127.0.0.1" in mongodb_url)):
-                mongodb_url = atlas_default
+            if not mongodb_url:
+                if os.getenv("ENVIRONMENT") == "production":
+                    raise ValueError("CRITICAL: MONGODB_URL or MONGO_URI must be provided in production environment!")
+                mongodb_url = "mongodb://localhost:27017/english-learning"
+                logger.warning("MONGODB_URL not set, falling back to local mongodb://localhost:27017/english-learning")
             database_name = os.getenv("DATABASE_NAME") or "english-learning"
             
             try:

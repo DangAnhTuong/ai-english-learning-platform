@@ -14,11 +14,9 @@ from app.utils.token_utils import calculate_context_tokens, format_context_strin
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-_ENCODED_KEY = b"QVEuQWI4Uk42SzJpVU1GNHRYWFdLQzRZaXl4QzRwNHFxYnRSWmt3bEdKam1nZ1g1UUZfQ2c="
-DEFAULT_GEMINI_KEY = base64.b64decode(_ENCODED_KEY).decode()
-
-_ENCODED_DEEPGRAM_KEY = b"ZWY4OWI0ZmUxOGM4NzYxOGJmNDk5NjZkZmZjNDY2YmFkOGZkYmMwYw=="
-DEFAULT_DEEPGRAM_KEY = base64.b64decode(_ENCODED_DEEPGRAM_KEY).decode()
+# API Keys are strictly loaded from environment variables (.env)
+DEFAULT_GEMINI_KEY = ""
+DEFAULT_DEEPGRAM_KEY = ""
 
 # Danh sách pool models Gemini dự phòng đa tầng (High Availability)
 # Sắp xếp theo thứ tự tốc độ cao nhất (sub-second) và hạn mức quota cao
@@ -64,7 +62,9 @@ CORE BEHAVIORS:
 
 class RealtimeService:
     def __init__(self):
-        self.gemini_key = os.getenv("GEMINI_API_KEY") or DEFAULT_GEMINI_KEY
+        self.gemini_key = os.getenv("GEMINI_API_KEY", "")
+        if not self.gemini_key:
+            logger.warning("GEMINI_API_KEY not configured in environment variables!")
         self._models_cache = {}
         self._model_cooldowns = {}
         self.is_initialized = False
@@ -405,7 +405,9 @@ Respond with valid JSON only."""
 
     async def process_audio_transcription(self, audio_data: bytes, content_type: str = "audio/webm") -> Dict[str, Any]:
         """Chuyển đổi âm thanh sang văn bản bằng Deepgram Nova-2 & Gemini Multimodal STT fallback"""
-        deepgram_key = os.getenv("DEEPGRAM_API_KEY") or DEFAULT_DEEPGRAM_KEY
+        deepgram_key = os.getenv("DEEPGRAM_API_KEY", "")
+        if not deepgram_key:
+            logger.warning("DEEPGRAM_API_KEY not configured in environment variables!")
         clean_content_type = (content_type or "audio/webm").split(";")[0].strip()
 
         # 1. Thử Deepgram Nova-2 (STT chuyên dụng, độ trễ <1s)

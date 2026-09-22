@@ -2,7 +2,8 @@ import axios from 'axios';
 
 // Base URL cho API - có thể lấy từ env hoặc hardcode
 // Frontend: port 3000, Backend Node.js: port 3001
-const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1';
+const isLocal = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const API_BASE_URL = process.env.REACT_APP_API_URL || (isLocal ? 'http://localhost:3001/api/v1' : '/api/v1');
 
 // Tạo axios instance
 const api = axios.create({
