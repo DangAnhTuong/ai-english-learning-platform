@@ -66,11 +66,19 @@ function Layout() {
     const userMenu = [
         {
             key: '1',
-            label: <NavLink to="/profile">Hồ sơ cá nhân</NavLink>,
+            label: <NavLink to="/profile">👤 Hồ sơ cá nhân</NavLink>,
         },
         {
             key: '2',
-            label: <NavLink to="/my-courses">Khóa học của tôi</NavLink>,
+            label: <NavLink to="/my-courses">📚 Khóa học của tôi</NavLink>,
+        },
+        {
+            key: 'flashcards',
+            label: <NavLink to="/flashcards">🗂️ Thẻ từ vựng SRS</NavLink>,
+        },
+        {
+            key: 'payment',
+            label: <NavLink to="/payment" style={{ color: '#d97706', fontWeight: 700 }}>👑 Nâng cấp VIP Pro</NavLink>,
         },
         {
             type: 'divider',
@@ -78,7 +86,7 @@ function Layout() {
         {
             key: '3',
             label: (
-                <div onClick={handleLogout} style={{ color: 'red', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div onClick={handleLogout} style={{ color: '#ef4444', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
                     <LogoutOutlined /> Đăng xuất
                 </div>
             ),
@@ -95,7 +103,11 @@ function Layout() {
                         <div className="layout__header-container">
 
                             <div className="layout__logo">
-                                <NavLink to="/">English AI</NavLink>
+                                <NavLink to="/" className="layout__logo-link">
+                                    <span className="logo-sparkle">⚡</span>
+                                    <span className="logo-brand-main">English</span><span className="logo-brand-accent">AI</span>
+                                    <span className="logo-badge-pro">PRO</span>
+                                </NavLink>
                             </div>
 
                             <nav className="layout__menu">
@@ -103,17 +115,18 @@ function Layout() {
                                     <li><NavLink to="/">Trang chủ</NavLink></li>
                                     <li><NavLink to="/courses">Khóa học</NavLink></li>
                                     <li><NavLink to="/conversation">Luyện hội thoại</NavLink></li>
-                                    {isLogin && <li><NavLink to="/mindmap">Từ vựng</NavLink></li>}
+                                    {isLogin && <li><NavLink to="/mindmap">Từ vựng AI</NavLink></li>}
                                     {isLogin && <li><NavLink to="/chatbox">Chat Box</NavLink></li>}
+                                    <li><NavLink to="/payment" className="nav-vip-link">👑 Gói VIP</NavLink></li>
                                 </ul>
                             </nav>
 
                             <div className="layout__auth">
                                 {isLogin ? (
                                     <Space size="large" style={{ display: 'flex', alignItems: 'center' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', color: '#ff4d4f', fontWeight: 'bold', fontSize: '16px' }} title="Chuỗi ngày học liên tiếp">
-                                            <FireFilled style={{ fontSize: 20, marginRight: 4 }} />
-                                            {user?.currentStreak || 0}
+                                        <div className="header-streak-badge" title="Chuỗi ngày học liên tiếp">
+                                            <FireFilled style={{ fontSize: 16, color: '#f59e0b', marginRight: 4 }} />
+                                            <span>{user?.currentStreak || 0} ngày</span>
                                         </div>
                                         <Dropdown
                                             menu={{ items: userMenu }}
@@ -137,7 +150,7 @@ function Layout() {
                                         <NavLink to="/login" className="link-login">Đăng nhập</NavLink>
                                         <NavLink to="/register">
                                             <Button type="primary" shape="round" className="btn-register">
-                                                Đăng ký miễn phí
+                                                Học thử miễn phí 🚀
                                             </Button>
                                         </NavLink>
                                     </div>
@@ -292,11 +305,13 @@ function Layout() {
                 >
                     <nav className="mobile-menu-nav">
                         <ul>
-                            <li><NavLink to="/" onClick={() => setIsMobileMenuVisible(false)}>Trang chủ</NavLink></li>
-                            <li><NavLink to="/courses" onClick={() => setIsMobileMenuVisible(false)}>Khóa học</NavLink></li>
-                            <li><NavLink to="/conversation" onClick={() => setIsMobileMenuVisible(false)}>Luyện hội thoại</NavLink></li>
-                            {isLogin && <li><NavLink to="/mindmap" onClick={() => setIsMobileMenuVisible(false)}>Từ vựng</NavLink></li>}
-                            {isLogin && <li><NavLink to="/chatbox" onClick={() => setIsMobileMenuVisible(false)}>Chat Box</NavLink></li>}
+                            <li><NavLink to="/" onClick={() => setIsMobileMenuVisible(false)}>🏠 Trang chủ</NavLink></li>
+                            <li><NavLink to="/courses" onClick={() => setIsMobileMenuVisible(false)}>📚 Khóa học AI</NavLink></li>
+                            <li><NavLink to="/conversation" onClick={() => setIsMobileMenuVisible(false)}>🎙️ Luyện hội thoại</NavLink></li>
+                            {isLogin && <li><NavLink to="/mindmap" onClick={() => setIsMobileMenuVisible(false)}>🧠 Từ vựng Mindmap</NavLink></li>}
+                            {isLogin && <li><NavLink to="/chatbox" onClick={() => setIsMobileMenuVisible(false)}>💬 Chat Box AI</NavLink></li>}
+                            {isLogin && <li><NavLink to="/flashcards" onClick={() => setIsMobileMenuVisible(false)}>🗂️ Thẻ Flashcards</NavLink></li>}
+                            <li><NavLink to="/payment" onClick={() => setIsMobileMenuVisible(false)} style={{ color: '#d97706', fontWeight: 700 }}>👑 Nâng cấp VIP Pro</NavLink></li>
                             
                             <div className="mobile-menu-divider"></div>
                             

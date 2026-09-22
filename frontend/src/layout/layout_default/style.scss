@@ -9,41 +9,73 @@
 
     &__header {
         position: fixed;
-        /* Dính chặt trên cùng */
         top: 0;
         left: 0;
         width: 100%;
-        background-color: #fff;
-        /* Nền trắng sang trọng */
-        height: 80px;
-        /* Chiều cao cố định */
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-        /* Đổ bóng nhẹ */
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        height: 74px;
+        border-bottom: 1px solid rgba(226, 232, 240, 0.85);
+        box-shadow: 0 4px 20px rgba(0, 114, 255, 0.05);
         z-index: 1000;
-        /* Luôn nằm trên cùng */
         display: flex;
         justify-content: center;
-        /* Căn giữa container */
+        transition: all 0.3s ease;
 
-        // Container giới hạn chiều rộng (để thẳng hàng với nội dung web)
         &-container {
             width: 100%;
-            max-width: 1200px;
-            padding: 0 20px;
+            max-width: 1260px;
+            padding: 0 24px;
             display: flex;
-            justify-content: space-between; // Dàn đều 3 phần: Logo - Menu - Auth
+            justify-content: space-between;
             align-items: center;
         }
     }
 
     &__logo {
-        font-size: 24px;
-        font-weight: 800;
+        display: flex;
+        align-items: center;
 
-        a {
+        .layout__logo-link {
             text-decoration: none;
-            color: var(--color-one, #0075F3);
-            /* Màu xanh thương hiệu */
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .logo-sparkle {
+            font-size: 20px;
+            filter: drop-shadow(0 2px 4px rgba(0, 114, 255, 0.3));
+        }
+
+        .logo-brand-main {
+            font-size: 22px;
+            font-weight: 900;
+            color: #0f172a;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-brand-accent {
+            font-size: 22px;
+            font-weight: 900;
+            background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -0.5px;
+        }
+
+        .logo-badge-pro {
+            font-size: 10px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
+            color: #fff;
+            padding: 2px 7px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+            margin-left: 3px;
         }
     }
 
@@ -53,87 +85,141 @@
             list-style: none;
             margin: 0;
             padding: 0;
-            gap: 40px;
-            /* Khoảng cách giữa các link menu */
+            gap: 6px;
+            align-items: center;
         }
 
         a {
             text-decoration: none;
-            color: #333;
+            color: #475569;
             font-weight: 600;
-            font-size: 16px;
-            transition: color 0.3s;
-            position: relative;
+            font-size: 14.5px;
+            padding: 8px 14px;
+            border-radius: 12px;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
 
-            // Hiệu ứng gạch chân khi active hoặc hover
-            &.active,
             &:hover {
-                color: var(--color-one, #0075F3);
+                color: #0072ff;
+                background: rgba(0, 114, 255, 0.06);
+                transform: translateY(-1px);
+            }
+
+            &.active {
+                color: #0072ff;
+                background: rgba(0, 114, 255, 0.1);
+                font-weight: 700;
+            }
+
+            &.nav-vip-link {
+                background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%) !important;
+                color: #b45309 !important;
+                font-weight: 700 !important;
+                border: 1px solid rgba(245, 158, 11, 0.3) !important;
+                box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+                border-radius: 20px !important;
+
+                &:hover {
+                    background: linear-gradient(135deg, #fde68a 0%, #fcd34d 100%) !important;
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
+                }
             }
         }
     }
 
-&__auth {
-    height: 100%;
-    display: flex;
-    align-items: center; 
-
-    .auth-buttons {
+    &__auth {
+        height: 100%;
         display: flex;
         align-items: center; 
-        gap: 20px;
 
-        a {
-            display: flex;       
+        .header-streak-badge {
+            display: flex;
+            align-items: center;
+            background: #fffbeb;
+            border: 1px solid #fde68a;
+            padding: 5px 12px;
+            border-radius: 999px;
+            color: #b45309;
+            font-weight: 700;
+            font-size: 13px;
+            box-shadow: 0 2px 6px rgba(245, 158, 11, 0.1);
+        }
+
+        .auth-buttons {
+            display: flex;
             align-items: center; 
-            text-decoration: none;
-            height: auto;
-            line-height: 0;      
+            gap: 16px;
+
+            a {
+                display: flex;       
+                align-items: center; 
+                text-decoration: none;
+                height: auto;
+                line-height: 0;      
+            }
         }
-    }
 
-    .link-login {
-        color: #555;
-        font-weight: 600;
-        font-size: 16px;
-        line-height: normal; 
-        
-        &:hover {
-            color: var(--color-one, #0075F3);
-        }
-    }
-
-    .btn-register {
-        background-color: var(--color-one, #0075F3);
-        height: 42px; 
-        font-weight: 600;
-        font-size: 15px;
-        border: none;
-        
-        display: flex;
-        align-items: center; 
-        justify-content: center;
-        padding: 0 24px;
-        margin: 0; 
-
-        &:hover {
-            background-color: #005bb5 !important;
-            transform: translateY(-1px);
-        }
-    }
-
-    .user-info {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        
-        .user-name {
+        .link-login {
+            color: #475569;
             font-weight: 600;
-            color: #333;
-            margin-left: 8px;
+            font-size: 15px;
+            line-height: normal; 
+            padding: 8px 14px;
+            border-radius: 10px;
+            transition: all 0.2s ease;
+            
+            &:hover {
+                color: #0072ff;
+                background: rgba(0, 114, 255, 0.05);
+            }
+        }
+
+        .btn-register {
+            background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%) !important;
+            height: 42px; 
+            font-weight: 700;
+            font-size: 14px;
+            border: none;
+            border-radius: 999px;
+            display: flex;
+            align-items: center; 
+            justify-content: center;
+            padding: 0 22px;
+            margin: 0; 
+            color: #fff;
+            box-shadow: 0 4px 14px rgba(0, 114, 255, 0.35);
+            transition: all 0.25s ease;
+            
+            &:hover {
+                background: linear-gradient(135deg, #005fdb 0%, #00a8e0 100%) !important;
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(0, 114, 255, 0.45);
+            }
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            padding: 4px 10px;
+            border-radius: 12px;
+            transition: background 0.2s ease;
+
+            &:hover {
+                background: rgba(0, 114, 255, 0.05);
+            }
+            
+            .user-name {
+                font-weight: 600;
+                color: #1e293b;
+                margin-left: 8px;
+                font-size: 14.5px;
+            }
         }
     }
-}
 
     &__footer {
         // 1. CHUYỂN SANG NỀN TRẮNG 

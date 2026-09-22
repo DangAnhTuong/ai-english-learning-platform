@@ -6,7 +6,7 @@
     background-image: radial-gradient(at 8% 8%, hsla(230, 100%, 94%, 1) 0px, transparent 50%),
                       radial-gradient(at 92% 15%, hsla(280, 100%, 94%, 1) 0px, transparent 50%),
                       radial-gradient(at 49% 95%, hsla(190, 100%, 92%, 1) 0px, transparent 50%);
-    height: calc(100vh - 80px); /* Adjust based on navbar */
+    height: calc(100vh - 74px); /* Adjust based on navbar */
     display: flex;
     justify-content: center;
     align-items: center;
