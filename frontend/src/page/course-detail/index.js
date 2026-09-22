@@ -88,6 +88,31 @@ function CourseDetail() {
       return;
     }
 
+    // Kiểm tra nếu là khóa học trả phí mà học viên chưa thanh toán / chưa có VIP
+    const isStaff = user?.roles?.some(role => ['admin', 'teacher'].includes(role));
+    const hasSubscription = !!user?.activeSubscriptionId;
+    if (course.enrollmentType === 'paid' && course.price > 0 && !isStaff && !hasSubscription) {
+      Modal.confirm({
+        title: 'Khóa học yêu cầu thanh toán',
+        content: `Khóa học "${course.title}" có mức học phí là ${formatPrice(course.price, course.currency)}. Bạn có muốn đến trang thanh toán ngay không?`,
+        okText: 'Thanh toán ngay',
+        cancelText: 'Để sau',
+        onOk: () => {
+          navigate('/payment', {
+            state: {
+              selectedPackage: {
+                name: `Khóa học: ${course.title}`,
+                price: course.price,
+                id: 1,
+                courseId: course._id
+              }
+            }
+          });
+        }
+      });
+      return;
+    }
+
     try {
       setEnrolling(true);
       const response = await courseService.enrollInCourse(courseId);

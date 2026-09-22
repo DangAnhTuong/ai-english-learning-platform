@@ -71,8 +71,8 @@ const AuthService = {
                 phone,
                 emailVerificationToken,
                 emailVerificationExpires,
-                // [PORTFOLIO DEMO] Tự động cấp quyền truy cập tính năng Premium (AI Chat) cho mọi user đăng ký mới
-                activeSubscriptionId: new (require('mongoose').Types.ObjectId)()
+                // Người dùng mới đăng ký mặc định là Free User (chưa mua gói VIP)
+                activeSubscriptionId: null
             });
 
             // Gửi email xác thực
@@ -461,7 +461,7 @@ const AuthService = {
                 email: email,
                 name: profile.displayName || email.split('@')[0],
                 username: username,
-                phone: '', // Optional for Google OAuth users
+                phone: undefined, // Tránh duplicate key error trong MongoDB sparse index
                 avatar: profile.photos?.[0]?.value,
                 passwordHash: 'google-oauth',
                 isEmailVerified: true,
@@ -469,8 +469,8 @@ const AuthService = {
                 authProvider: 'google',
                 lastLoginAt: new Date(),
                 totalLogins: 1,
-                // [PORTFOLIO DEMO] Tự động cấp quyền truy cập tính năng Premium (AI Chat) cho mọi user đăng ký mới
-                activeSubscriptionId: new (require('mongoose').Types.ObjectId)()
+                // Người dùng mới đăng ký mặc định là Free User (chưa mua gói VIP)
+                activeSubscriptionId: null
             });
 
             SecurityLogger.logLoginAttempt({

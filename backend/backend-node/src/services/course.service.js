@@ -280,6 +280,30 @@ const CourseService = {
                 throw new AppError('Bạn đã đăng ký khóa học này rồi', 409, ErrorCodes.ALREADY_ENROLLED);
             }
 
+            // Check if course requires payment
+            if (course.enrollmentType === 'paid' && (course.price && course.price > 0)) {
+                const User = require('../models/userSchema');
+                const user = await User.findById(userId);
+                const isStaff = user?.roles?.some(role => ['admin', 'teacher'].includes(role));
+                const hasSubscription = !!user?.activeSubscriptionId;
+
+                if (!isStaff && !hasSubscription) {
+                    const Order = require('../models/order');
+                    const paidOrder = await Order.findOne({
+                        userId,
+                        status: 'paid',
+                        $or: [
+                            { 'package.name': { $regex: new RegExp(course.title, 'i') } },
+                            { 'metadata.courseId': courseId }
+                        ]
+                    });
+
+                    if (!paidOrder) {
+                        throw new AppError('Khóa học này yêu cầu trả phí để tham gia', 402, 'PAYMENT_REQUIRED');
+                    }
+                }
+            }
+
             // Create enrollment
             const enrollment = await Enrollment.create({
                 userId,
