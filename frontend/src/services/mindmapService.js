@@ -1,7 +1,8 @@
 import api from './api';
 
 // Python API base URL
-const PYTHON_API_URL = process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8000';
+const isLocalMM = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const PYTHON_API_URL = isLocalMM ? (process.env.REACT_APP_PYTHON_API_URL && process.env.REACT_APP_PYTHON_API_URL.startsWith('http') ? process.env.REACT_APP_PYTHON_API_URL : 'http://localhost:8000') : '/py-api';
 
 /**
  * Mindmap Service

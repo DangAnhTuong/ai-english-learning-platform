@@ -7,9 +7,9 @@ import api from './api'; // Đây là kết nối tới Node.js (Cổng 3001)
 
 // Địa chỉ động của Python AI (hỗ trợ cả Localhost và Nginx Reverse Proxy trên VPS)
 const isLocalEnv = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const PYTHON_API_URL = process.env.REACT_APP_PYTHON_API_URL 
-    ? `${process.env.REACT_APP_PYTHON_API_URL.replace(/\/$/, '')}/api/v1` 
-    : (isLocalEnv ? 'http://localhost:8000/api/v1' : '/py-api/api/v1');
+const PYTHON_API_URL = isLocalEnv 
+    ? (process.env.REACT_APP_PYTHON_API_URL && process.env.REACT_APP_PYTHON_API_URL.startsWith('http') ? `${process.env.REACT_APP_PYTHON_API_URL.replace(/\/$/, '')}/api/v1` : 'http://localhost:8000/api/v1') 
+    : '/py-api/api/v1';
 
 const pythonApi = axios.create({
     baseURL: PYTHON_API_URL,

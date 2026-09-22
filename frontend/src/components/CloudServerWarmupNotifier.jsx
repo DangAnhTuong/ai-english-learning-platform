@@ -13,8 +13,9 @@ const CloudServerWarmupNotifier = () => {
     let isMounted = true;
     let timerInterval = null;
 
-    const nodeApiUrl = (process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1').replace(/\/$/, '');
-    const pythonApiUrl = (process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8000').replace(/\/$/, '');
+    const isLocalNotif = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    const nodeApiUrl = isLocalNotif ? (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.startsWith('http') ? process.env.REACT_APP_API_URL.replace(/\/$/, '') : 'http://localhost:3001/api/v1') : '/api/v1';
+    const pythonApiUrl = isLocalNotif ? (process.env.REACT_APP_PYTHON_API_URL && process.env.REACT_APP_PYTHON_API_URL.startsWith('http') ? process.env.REACT_APP_PYTHON_API_URL.replace(/\/$/, '') : 'http://localhost:8000') : '/py-api';
 
     // Threshold timer: If servers haven't answered in 1.2s, they are likely spinning up
     const spinUpTimer = setTimeout(() => {

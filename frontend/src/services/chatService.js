@@ -4,8 +4,9 @@
  */
 
 // Python API base URL
-const PYTHON_API_URL = (process.env.REACT_APP_PYTHON_API_URL || 'http://localhost:8000').replace(/\/$/, '');
-const NODE_API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3001/api/v1').replace(/\/$/, '');
+const isLocalChat = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+const PYTHON_API_URL = isLocalChat ? (process.env.REACT_APP_PYTHON_API_URL && process.env.REACT_APP_PYTHON_API_URL.startsWith('http') ? process.env.REACT_APP_PYTHON_API_URL.replace(/\/$/, '') : 'http://localhost:8000') : '/py-api';
+const NODE_API_BASE_URL = isLocalChat ? (process.env.REACT_APP_API_URL && process.env.REACT_APP_API_URL.startsWith('http') ? process.env.REACT_APP_API_URL.replace(/\/$/, '') : 'http://localhost:3001/api/v1') : '/api/v1';
 
 const getAuthHeaders = () => {
     const token = localStorage.getItem('accessToken');
