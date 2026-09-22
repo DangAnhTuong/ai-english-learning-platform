@@ -58,7 +58,7 @@ function RefundPolicy() {
                 {/* 3. QUY TRÌNH XỬ LÝ */}
                 <Title level={3}><MailOutlined /> 3. Quy trình xử lý hoàn tiền</Title>
                 <Paragraph>
-                    <Text strong>Bước 1:</Text> Gửi yêu cầu qua trang Liên hệ hoặc Email <Text code>letrithieng@gmail.com</Text> với nội dung: 
+                    <Text strong>Bước 1:</Text> Gửi yêu cầu qua trang Liên hệ hoặc Email <Text code>danganhtuongg@gmail.com</Text> với nội dung: 
                     <br/>- Tiêu đề: "Yêu cầu hoàn tiền - [Mã đơn hàng/Email đăng ký]"
                     <br/>- Lý do chi tiết + Hình ảnh minh họa lỗi (nếu có).
                 </Paragraph>

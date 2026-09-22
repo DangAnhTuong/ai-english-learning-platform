@@ -239,12 +239,12 @@ function Layout() {
                                             <h5>CÔNG TY CỔ PHẦN CÔNG NGHỆ GIÁO DỤC ENGLISH AI</h5>
                                             <p><strong>Mã số doanh nghiệp:</strong> 0123456789 do Sở Kế hoạch và Đầu tư TP.HCM cấp.</p>
                                             <p><strong>Địa chỉ:</strong> Tòa nhà English AI, Đặng Thùy Trâm, Phường 13, Quận Bình Thạnh, TP. Hồ Chí Minh.</p>
-                                            <p><strong>Đại diện pháp luật:</strong> Lê Trí Thiện</p>
+                                            <p><strong>Đại diện pháp luật:</strong> Đặng Ánh Tường</p>
                                         </Col>
                                         <Col xs={24} md={10}>
                                             <h5>TRUNG TÂM NGOẠI NGỮ ENGLISH AI</h5>
-                                            <p><PhoneOutlined /> <strong>Hotline:</strong> +84 942334470 (8:00 - 21:00)</p>
-                                            <p><MailOutlined /> <strong>Email:</strong> letrithieng@gmail.com</p>
+                                            <p><PhoneOutlined /> <strong>Hotline:</strong> +84 335 847 674 (8:00 - 21:00)</p>
+                                            <p><MailOutlined /> <strong>Email:</strong> danganhtuongg@gmail.com</p>
                                             <div className="cert-logos">
                                                 <Space size="large">
                                                     <div className="bct-logo" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -258,7 +258,7 @@ function Layout() {
                                 </div>
 
                                 <div className="layout__footer-copyright" style={{ textAlign: 'center', marginTop: '30px', color: '#bbb', fontSize: '12px' }}>
-                                    © 2025 English AI. All rights reserved. @Copyright by Team
+                                    © 2026 English AI. All rights reserved. @Copyright by danganhtuong
                                 </div>
                             </div>
                         </footer>

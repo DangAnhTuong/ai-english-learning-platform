@@ -99,7 +99,7 @@ function TermsOfService() {
                     <Title level={4}>Thắc mắc về điều khoản?</Title>
                     <Paragraph>
                         Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ: <br />
-                        <Text strong>Email:</Text> <a href="mailto:letrithieng@gmail.com">letrithieng@gmail.com</a>
+                        <Text strong>Email:</Text> <a href="mailto:danganhtuongg@gmail.com">danganhtuongg@gmail.com</a>
                     </Paragraph>
                 </div>
 

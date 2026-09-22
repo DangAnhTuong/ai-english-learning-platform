@@ -46,7 +46,7 @@ function Contact() {
                                 <div>
                                     <Text strong style={{ fontSize: 16 }}>Hotline:</Text>
                                     <Paragraph style={{ color: '#666', margin: 0 }}>
-                                        +84 942 334 470  (8:00 - 21:00)
+                                        +84 335 847 674  (8:00 - 21:00)
                                     </Paragraph>
                                 </div>
                             </div>
@@ -56,7 +56,7 @@ function Contact() {
                                 <div>
                                     <Text strong style={{ fontSize: 16 }}>Email:</Text>
                                     <Paragraph style={{ color: '#666', margin: 0 }}>
-                                        letrithieng@gmail.com
+                                        danganhtuongg@gmail.com
                                     </Paragraph>
                                 </div>
                             </div>

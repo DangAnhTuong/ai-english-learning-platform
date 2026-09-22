@@ -99,7 +99,7 @@ function PrivacyPolicy() {
                         Nếu bạn có bất kỳ câu hỏi nào về Chính sách bảo mật này, vui lòng liên hệ với chúng tôi qua:
                     </Paragraph>
                     <Paragraph>
-                        <Text strong>Email:</Text> <a href="mailto:letrithieng@gmail.com">letrithieng@gmail.com</a><br />
+                        <Text strong>Email:</Text> <a href="mailto:danganhtuongg@gmail.com">danganhtuongg@gmail.com</a><br />
                         <Text strong>Địa chỉ:</Text> Tòa nhà English AI, Đặng Thùy Trâm, Phường 13, Quận Bình Thạnh, TP. Hồ Chí Minh.
                     </Paragraph>
                 </div>
