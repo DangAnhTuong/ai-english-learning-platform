@@ -1,0 +1,287 @@
+/* ========================================================
+   FLASHCARDS SRS PAGE - SPEAK.COM VIBRANT EDTECH
+   ======================================================== */
+
+.flashcards-page {
+  background: #f8fafc;
+  min-height: calc(100vh - 74px);
+  padding: 40px 20px 80px;
+}
+
+.flashcards-container {
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.flashcards-header {
+  text-align: center;
+  margin-bottom: 28px;
+}
+
+.flashcards-pill-badge {
+  display: inline-flex;
+  align-items: center;
+  background: #eff6ff;
+  color: #0284c7;
+  padding: 6px 16px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+  border: 1px solid #bae6fd;
+}
+
+.flashcards-title {
+  font-size: 32px !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+  margin-bottom: 8px !important;
+  letter-spacing: -0.5px;
+}
+
+.flashcards-subtitle {
+  color: #64748b !important;
+  font-size: 15px !important;
+  line-height: 1.6;
+  max-width: 540px;
+  margin: 0 auto 20px !important;
+}
+
+.flashcards-action-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
+
+.streak-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #334155;
+}
+
+.btn-add-card {
+  background: linear-gradient(135deg, #0072ff 0%, #00c6ff 100%) !important;
+  border: none !important;
+  font-weight: 700;
+  box-shadow: 0 4px 12px rgba(0, 114, 255, 0.25);
+}
+
+/* Progress */
+.flashcards-progress-section {
+  background: #ffffff;
+  padding: 16px 20px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  margin-bottom: 24px;
+}
+
+.progress-info-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+/* 3D Flip Card Scene */
+.flashcard-scene {
+  perspective: 1200px;
+  height: 340px;
+  margin-bottom: 28px;
+  cursor: pointer;
+}
+
+.flashcard-3d {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+  border-radius: 28px;
+}
+
+.flashcard-3d.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.card-face {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+  border-radius: 28px;
+  padding: 30px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 16px 40px rgba(0, 114, 255, 0.08);
+  border: 1.5px solid #e2e8f0;
+  background: #ffffff;
+  transition: all 0.3s ease;
+}
+
+.card-face:hover {
+  box-shadow: 0 20px 48px rgba(0, 114, 255, 0.14);
+}
+
+.card-face-front {
+  background: linear-gradient(135deg, #ffffff 0%, #f0f7ff 100%);
+  border-color: #bae6fd;
+}
+
+.card-face-back {
+  background: linear-gradient(135deg, #ffffff 0%, #f0fdf4 100%);
+  border-color: #bbf7d0;
+  transform: rotateY(180deg);
+}
+
+.face-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.face-tag {
+  font-size: 11px;
+  font-weight: 800;
+  background: #eff6ff;
+  color: #0284c7;
+  padding: 4px 12px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+
+.btn-sound-card {
+  width: 44px;
+  height: 44px;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.face-main {
+  text-align: center;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.card-word {
+  font-size: 40px !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+  margin: 0 !important;
+  letter-spacing: -0.5px;
+}
+
+.card-ipa {
+  font-size: 18px;
+  color: #64748b;
+  margin-top: 8px;
+  font-style: italic;
+  font-family: serif;
+}
+
+.card-meaning {
+  font-size: 26px !important;
+  font-weight: 800 !important;
+  color: #059669 !important;
+  margin: 0 0 16px !important;
+}
+
+.card-example-box {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 14px 18px;
+  text-align: left;
+  max-width: 90%;
+}
+
+.example-text {
+  font-size: 14.5px !important;
+  color: #334155 !important;
+  margin: 0 !important;
+  font-style: italic;
+  line-height: 1.5;
+}
+
+.face-footer {
+  text-align: center;
+}
+
+.flip-hint {
+  font-size: 13px;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+/* SRS Review Buttons */
+.srs-actions-wrapper {
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.03);
+}
+
+.srs-btn {
+  height: 48px !important;
+  font-weight: 700 !important;
+  border-radius: 14px !important;
+  font-size: 14px !important;
+}
+
+.srs-hard {
+  border-color: #fca5a5 !important;
+  color: #dc2626 !important;
+}
+
+.srs-hard:hover {
+  background: #fef2f2 !important;
+}
+
+.srs-good {
+  background: #f8fafc !important;
+  color: #475569 !important;
+  border-color: #cbd5e1 !important;
+}
+
+.srs-good:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.srs-easy {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3) !important;
+}
+
+.srs-easy:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4) !important;
+}
+
+/* Finished Card */
+.flashcards-finished-card {
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 48px 30px;
+  text-align: center;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.05);
+}
+
+.flashcards-loading {
+  text-align: center;
+  padding: 100px 20px;
+}
