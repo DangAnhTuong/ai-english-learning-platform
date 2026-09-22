@@ -128,14 +128,27 @@ const PaymentController = {
       const userId = req.user.id || req.user._id;
       const { planId, courseId } = req.body;
 
-      // Nếu có đơn hàng pending được tạo trong 15 phút gần đây, tái sử dụng để tránh sinh rác
-      const activePending = await Order.findOne({
+      let targetPlanId = planId;
+      if (planId === 'vip_1m') targetPlanId = 'vip_1_month';
+      if (planId === 'vip_3m') targetPlanId = 'vip_3_months';
+      if (planId === 'vip_1y') targetPlanId = 'vip_12_months';
+
+      // Nếu có đơn hàng pending của đúng gói hoặc khóa học này trong 15 phút, tái sử dụng
+      const queryFilter = {
         userId,
         status: 'pending',
         createdAt: { $gte: new Date(Date.now() - 15 * 60 * 1000) }
-      }).sort({ createdAt: -1 });
+      };
+      if (targetPlanId) {
+        queryFilter['metadata.planId'] = targetPlanId;
+      }
+      if (courseId) {
+        queryFilter['metadata.courseId'] = courseId;
+      }
 
-      if (activePending && !courseId) {
+      const activePending = await Order.findOne(queryFilter).sort({ createdAt: -1 });
+
+      if (activePending) {
         return res.json({
           success: true,
           isExisting: true,
@@ -153,14 +166,20 @@ const PaymentController = {
         });
       }
 
+      // Hủy các đơn hàng pending cũ của người dùng nếu họ đổi sang gói khác
+      await Order.updateMany(
+        { userId, status: 'pending' },
+        { $set: { status: 'cancelled' } }
+      );
+
       let packageName = 'Gói VIP Tiêu Chuẩn (3 Tháng)';
       let duration = 90;
       let amount = 499000;
       let planTier = 'premium';
 
       // Nếu là mua gói VIP
-      if (planId && PRICING_PLANS[planId]) {
-        const p = PRICING_PLANS[planId];
+      if (targetPlanId && PRICING_PLANS[targetPlanId]) {
+        const p = PRICING_PLANS[targetPlanId];
         packageName = p.name;
         duration = p.durationDays;
         amount = p.price;
@@ -203,7 +222,7 @@ const PaymentController = {
         metadata: {
           qrUrl,
           courseId: courseId || null,
-          planId: planId || 'vip_3_months'
+          planId: targetPlanId || 'vip_3_months'
         }
       });
 
