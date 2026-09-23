@@ -14,7 +14,9 @@ export const mindmapService = {
      * Generate mindmap từ topic bằng AI
      * @param {string} topic - Chủ đề cần generate mindmap
      */
-    async generateMindmap(topic) {
+        async generateMindmap(topic) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000); // 12s timeout
         try {
             const response = await fetch(`${PYTHON_API_URL}/api/v1/mindmap/generate`, {
                 method: 'POST',
@@ -22,7 +24,9 @@ export const mindmapService = {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({ topic }),
+                signal: controller.signal,
             });
+            clearTimeout(timeoutId);
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -31,7 +35,8 @@ export const mindmapService = {
             const data = await response.json();
             return { success: true, data };
         } catch (error) {
-            console.error('Generate mindmap error:', error);
+            clearTimeout(timeoutId);
+            console.warn('Generate mindmap fetch error or timeout:', error);
             return { success: false, error: error.message };
         }
     },

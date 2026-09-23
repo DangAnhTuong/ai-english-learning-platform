@@ -27,6 +27,160 @@ const POPULAR_TOPICS = [
 
 // Rich offline dictionary for instant response & robust fallback
 const RICH_WORD_DICTIONARY = {
+  work: {
+    root: 'Work',
+    definition: '/wɜːrk/ (verb/noun) - Làm việc, công việc, sự nghiệp',
+    branches: [
+      {
+        title: '📖 Nghĩa & Phiên Âm',
+        color: '#0284c7',
+        nodes: [
+          { en: '/wɜːrk/', vi: 'Phát âm chuẩn (nguyên âm dài /ɜː/)', example: 'Pronounced: Work.' },
+          { en: 'Core Meaning', vi: 'Hoạt động thể chất hoặc trí óc để tạo ra kết quả / Nhiệm vụ nghề nghiệp', example: 'She works diligently as a software engineer.' }
+        ]
+      },
+      {
+        title: '🌳 Họ Từ Vựng (Word Family)',
+        color: '#2563eb',
+        nodes: [
+          { en: 'Worker (noun)', vi: 'Người lao động, công nhân', example: 'Skilled workers are the backbone of the economy.' },
+          { en: 'Working (noun/adj)', vi: 'Việc làm / Đang hoạt động', example: 'Flexible working hours increase productivity.' },
+          { en: 'Workplace (noun)', vi: 'Nơi làm việc, văn phòng', example: 'A positive workplace environment fosters creativity.' },
+          { en: 'Workload (noun)', vi: 'Khối lượng công việc', example: 'Manage your workload to avoid burnout.' }
+        ]
+      },
+      {
+        title: '🌿 Từ Đồng Nghĩa (Synonyms)',
+        color: '#059669',
+        nodes: [
+          { en: 'Labor', vi: 'Lao động, công việc chân tay', example: 'The monument was built through years of hard labor.' },
+          { en: 'Operate', vi: 'Vận hành, hoạt động', example: 'The system works without any technical issues.' },
+          { en: 'Function', vi: 'Thực hiện chức năng', example: 'All parts work in perfect harmony.' }
+        ]
+      },
+      {
+        title: '🍂 Từ Trái Nghĩa (Antonyms)',
+        color: '#dc2626',
+        nodes: [
+          { en: 'Rest', vi: 'Nghỉ ngơi, tĩnh dưỡng', example: 'Take adequate rest after intense focus.' },
+          { en: 'Idleness', vi: 'Sự nhàn rỗi, không làm gì', example: 'Idleness leads to missed opportunities.' },
+          { en: 'Play', vi: 'Vui chơi giải trí', example: 'Balance between work and play is essential.' }
+        ]
+      },
+      {
+        title: '💬 Cụm Từ & Mẫu Câu',
+        color: '#d97706',
+        nodes: [
+          { en: 'Work from home (WFH)', vi: 'Làm việc từ xa tại nhà', example: 'Many modern tech firms offer flexible work from home options.' },
+          { en: 'Hard work pays off', vi: 'Nỗ lực làm việc ắt sẽ gặt hái thành công', example: 'Never give up, persistent hard work always pays off.' },
+          { en: 'Work out', vi: 'Tập thể dục / Tìm ra giải pháp thỏa đáng', example: 'Everything will work out fine in the end.' }
+        ]
+      }
+    ]
+  },
+  study: {
+    root: 'Study',
+    definition: '/ˈstʌd.i/ (verb/noun) - Học tập, nghiên cứu chuyên sâu',
+    branches: [
+      {
+        title: '📖 Nghĩa & Phiên Âm',
+        color: '#0284c7',
+        nodes: [
+          { en: '/ˈstʌd.i/', vi: 'Phát âm chuẩn (trọng âm rơi vào âm tiết đầu)', example: 'Practice pronunciation: STU-dy.' },
+          { en: 'Core Meaning', vi: 'Dành thời gian tiếp thu tri thức / Công trình nghiên cứu', example: 'He studies English for two hours every day.' }
+        ]
+      },
+      {
+        title: '🌳 Họ Từ Vựng (Word Family)',
+        color: '#2563eb',
+        nodes: [
+          { en: 'Student (noun)', vi: 'Học sinh, sinh viên, người học', example: 'Ambitious students excel in active recall learning.' },
+          { en: 'Studious (adj)', vi: 'Chăm chỉ, ham học hỏi', example: 'She is a remarkably studious and disciplined researcher.' },
+          { en: 'Studiously (adv)', vi: 'Một cách chăm chỉ, cẩn trọng', example: 'He studiously reviewed every vocabulary card.' }
+        ]
+      },
+      {
+        title: '🌿 Từ Đồng Nghĩa (Synonyms)',
+        color: '#059669',
+        nodes: [
+          { en: 'Learn', vi: 'Học hỏi, tiếp thu kỹ năng mới', example: 'Learn from mistakes to improve continuously.' },
+          { en: 'Research', vi: 'Nghiên cứu khoa học chuyên sâu', example: 'The university conducts groundbreaking cancer research.' },
+          { en: 'Investigate', vi: 'Khảo sát, tìm hiểu kỹ lưỡng', example: 'Scientists investigate the effects of climate change.' }
+        ]
+      },
+      {
+        title: '🍂 Từ Trái Nghĩa (Antonyms)',
+        color: '#dc2626',
+        nodes: [
+          { en: 'Neglect', vi: 'Sao nhãng, bỏ bê việc học', example: 'Do not neglect your foundational grammar skills.' },
+          { en: 'Ignore', vi: 'Phớt lờ, làm ngơ', example: 'Ignoring feedback prevents self-growth.' }
+        ]
+      },
+      {
+        title: '💬 Cụm Từ & Mẫu Câu',
+        color: '#d97706',
+        nodes: [
+          { en: 'Hit the books', vi: 'Vùi đầu vào học thi', example: 'Exam season is here, it is time to hit the books!' },
+          { en: 'Study abroad', vi: 'Đi du học nước ngoài', example: 'Studying abroad expands personal independence.' },
+          { en: 'Case study', vi: 'Bài học nghiên cứu tình huống thực tế', example: 'We analyzed a fascinating Harvard case study.' }
+        ]
+      }
+    ]
+  },
+  run: {
+    root: 'Run',
+    definition: '/rʌn/ (verb/noun) - Chạy, di chuyển nhanh, vận hành hoặc quản lý',
+    branches: [
+      {
+        title: '📖 Nghĩa & Phiên Âm',
+        color: '#0284c7',
+        nodes: [
+          { en: '/rʌn/', vi: 'Phát âm chuẩn (nguyên âm ngắn /ʌ/)', example: 'Pronounced crisply: Run.' },
+          { en: 'Core Meaning', vi: 'Di chuyển bằng chân với tốc độ cao / Vận hành điều hành hệ thống', example: 'She runs every morning before going to work.' }
+        ]
+      },
+      {
+        title: '🌳 Họ Từ Vựng (Word Family)',
+        color: '#2563eb',
+        nodes: [
+          { en: 'Runner (noun)', vi: 'Vận động viên chạy, người chạy', example: 'Over ten thousand runners participated in the city marathon.' },
+          { en: 'Running (noun/adj)', vi: 'Hoạt động chạy bộ / Đang hoạt động', example: 'Running is one of the best cardiovascular exercises.' },
+          { en: 'Run-through (noun)', vi: 'Buổi tổng duyệt, luyện tập trước', example: 'Let us do a quick run-through of the presentation.' },
+          { en: 'Runny (adj)', vi: 'Chảy nước, loãng', example: 'He had a fever and a runny nose during the winter.' }
+        ]
+      },
+      {
+        title: '🌿 Từ Đồng Nghĩa (Synonyms)',
+        color: '#059669',
+        nodes: [
+          { en: 'Sprint', vi: 'Chạy nước rút hết tốc lực', example: 'He sprinted the last 50 meters to win the race.' },
+          { en: 'Jog', vi: 'Chạy bộ nhẹ nhàng giữ sức khỏe', example: 'They jog around the serene park every sunset.' },
+          { en: 'Operate', vi: 'Vận hành máy móc, ứng dụng', example: 'The sophisticated machinery runs without interruption.' },
+          { en: 'Manage', vi: 'Điều hành, quản lý doanh nghiệp', example: 'She successfully runs a major international agency.' }
+        ]
+      },
+      {
+        title: '🍂 Từ Trái Nghĩa (Antonyms)',
+        color: '#dc2626',
+        nodes: [
+          { en: 'Walk', vi: 'Đi bộ thong thả', example: 'Instead of running, take a peaceful walk in nature.' },
+          { en: 'Halt', vi: 'Dừng lại, đình chỉ', example: 'Production came to a sudden halt.' },
+          { en: 'Idle', vi: 'Đứng yên, không chạy', example: 'The factory remained idle over the holidays.' }
+        ]
+      },
+      {
+        title: '💬 Cụm Từ & Mẫu Câu',
+        color: '#d97706',
+        nodes: [
+          { en: 'Run out of', vi: 'Cạn kiệt, hết sạch (tiền, thời gian)', example: 'Hurry up, we are running out of time!' },
+          { en: 'In the long run', vi: 'Xét về mặt lâu dài', example: 'Investing in quality will save costs in the long run.' },
+          { en: 'Run a business', vi: 'Điều hành một doanh nghiệp', example: 'It requires strategic grit to run a thriving business.' },
+          { en: 'Hit the ground running', vi: 'Bắt tay ngay vào việc một cách suôn sẻ', example: 'The new recruit hit the ground running on day one.' }
+        ]
+      }
+    ]
+  },
+
   travel: {
     root: 'Travel',
     definition: '/ˈtræv.əl/ (verb/noun) - Đi du lịch, du hành, khám phá thế giới',
@@ -327,7 +481,7 @@ export function normalizeMindmapData(raw, fallbackWord = '') {
     return raw;
   }
 
-  const rootText = raw.root || raw.label || fallbackWord || 'English';
+  const rootText = raw.root || raw.label || raw.name || fallbackWord || 'English';
   const definition = raw.definition || '';
 
   // 2. If tree structure with children (Python FastAPI / Gemini schema)
@@ -344,7 +498,7 @@ export function normalizeMindmapData(raw, fallbackWord = '') {
   const defaultColors = ['#0284c7', '#2563eb', '#059669', '#dc2626', '#d97706', '#7c3aed'];
 
   const branches = rawBranches.map((branchItem, bIdx) => {
-    const rawTitle = branchItem.label || branchItem.title || `Nhánh ${bIdx + 1}`;
+    const rawTitle = branchItem.label || branchItem.title || branchItem.name || `Nhánh ${bIdx + 1}`;
     const titleLower = rawTitle.toLowerCase();
 
     const matchedConfig = categoryConfig.find(cfg => cfg.match.some(m => titleLower.includes(m)));
@@ -362,7 +516,7 @@ export function normalizeMindmapData(raw, fallbackWord = '') {
         };
       }
 
-      const text = typeof nodeItem === 'string' ? nodeItem : (nodeItem?.label || '');
+      const text = typeof nodeItem === 'string' ? nodeItem : (nodeItem?.label || nodeItem?.name || nodeItem?.text || '');
       let en = text;
       let vi = '';
       let example = '';
@@ -441,38 +595,37 @@ function Mindmap() {
     handleGenerateMindmap('travel');
   }, []);
 
+    const [aiEnriching, setAiEnriching] = useState(false);
+
   const handleGenerateMindmap = async (topicOrWord) => {
     const query = (topicOrWord || searchTerm || 'travel').trim();
     if (!query) return;
 
+    const lowerQuery = query.toLowerCase();
+
+    // 1. INSTANT OPTIMISTIC RENDER (0ms latency!)
+    // Immediately display rich local data or dynamic morphological tree
+    if (RICH_WORD_DICTIONARY[lowerQuery]) {
+      setData(RICH_WORD_DICTIONARY[lowerQuery]);
+    } else {
+      setData(buildDynamicWordFamily(query));
+    }
+
+    // 2. BACKGROUND ENRICHMENT VIA FASTAPI & GEMINI
+    // Set subtle non-blocking indicator on button only - NEVER hide the canvas!
     try {
-      setLoading(true);
-
-      // Check rich local dictionary first for instant zero-latency experience
-      const lowerQuery = query.toLowerCase();
-      if (RICH_WORD_DICTIONARY[lowerQuery]) {
-        setData(RICH_WORD_DICTIONARY[lowerQuery]);
-        setLoading(false);
-        return;
-      }
-
-      // Call API
+      setAiEnriching(true);
       const res = await mindmapService.generateMindmap(query);
       if (res.success && res.data) {
         const normalized = normalizeMindmapData(res.data, query);
         if (normalized && normalized.branches && normalized.branches.length > 0) {
           setData(normalized);
-          return;
         }
       }
-
-      // Fallback to rich dynamic word family generator
-      setData(buildDynamicWordFamily(query));
     } catch (e) {
-      console.warn('Mindmap API fallback:', e);
-      setData(buildDynamicWordFamily(query));
+      console.warn('Background AI mindmap error:', e);
     } finally {
-      setLoading(false);
+      setAiEnriching(false);
     }
   };
 
@@ -534,11 +687,11 @@ function Mindmap() {
                 type="primary"
                 size="large"
                 icon={<ThunderboltOutlined />}
-                loading={loading}
+                loading={aiEnriching}
                 onClick={() => handleGenerateMindmap(searchTerm)}
                 className="btn-generate-mindmap"
               >
-                Tạo Sơ Đồ AI
+                {aiEnriching ? 'AI đang mở rộng...' : 'Tạo Sơ Đồ AI'}
               </Button>
             </div>
 
@@ -581,11 +734,7 @@ function Mindmap() {
             </Space>
           </div>
 
-          {loading ? (
-            <div className="mindmap-loading-box">
-              <Spin size="large" tip="AI đang phân rã và xây dựng cây ngữ nghĩa..." />
-            </div>
-          ) : !data ? (
+          {!data ? (
             <Empty description="Hãy chọn một chủ đề hoặc nhập từ vựng để bắt đầu" />
           ) : (
             <div
