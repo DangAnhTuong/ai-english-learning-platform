@@ -239,7 +239,7 @@ function Layout() {
                                             <h5>CÔNG TY CỔ PHẦN CÔNG NGHỆ GIÁO DỤC ENGLISH AI</h5>
                                             <p><strong>Mã số doanh nghiệp:</strong> 0123456789 do Sở Kế hoạch và Đầu tư TP.HCM cấp.</p>
                                             <p><strong>Địa chỉ:</strong> Tòa nhà English AI, Đặng Thùy Trâm, Phường 13, Quận Bình Thạnh, TP. Hồ Chí Minh.</p>
-                                            <p><strong>Đại diện pháp luật:</strong> Đặng Ánh Tường</p>
+                                            <p><strong>Đại diện pháp luật:</strong> Đặng Anh Tường</p>
                                         </Col>
                                         <Col xs={24} md={10}>
                                             <h5>TRUNG TÂM NGOẠI NGỮ ENGLISH AI</h5>
