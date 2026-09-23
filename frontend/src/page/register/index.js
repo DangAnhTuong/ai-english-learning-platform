@@ -39,7 +39,7 @@ function Register() {
         refreshToken,
       }));
 
-      message.success('Đăng ký/Đăng nhập thành công!');
+      message.success('Đăng ký tài khoản thành công!');
       navigate('/');
     } else {
       throw new Error(response.error || data.error || 'Thao tác thất bại');
@@ -103,22 +103,37 @@ function Register() {
   };
 
   return (
-    <div className="register-page">
+    <div className="auth-page">
       
       {/* CỘT TRÁI */}
-      <div className="register-left">
+      <div className="auth-left">
         <div className="auth-left-content">
-            <img src={registerImg} alt="English AI" className="hero-img"/>
-            <h2>Tham gia cộng đồng English AI</h2>
-            <p>Học tập không giới hạn - Kết nối toàn cầu</p>
+          <img src={registerImg} alt="English AI" className="hero-img" />
+          <div className="auth-left-badge">✨ NỀN TẢNG TIẾNG ANH AI THÔNG MINH</div>
+          <h2>Tham gia cộng đồng English AI</h2>
+          <p>Học tập không giới hạn - Kết nối toàn cầu và tự tin giao tiếp cùng AI</p>
+          <div className="auth-feature-list">
+            <div className="auth-feature-item">
+              <span style={{ fontSize: '18px' }}>🎙️</span>
+              <span>Luyện nói phản xạ 1:1 cùng trợ lý AI bản ngữ</span>
+            </div>
+            <div className="auth-feature-item">
+              <span style={{ fontSize: '18px' }}>⚡</span>
+              <span>Chấm phát âm thời gian thực chính xác từng âm tiết</span>
+            </div>
+            <div className="auth-feature-item">
+              <span style={{ fontSize: '18px' }}>🎯</span>
+              <span>Lộ trình cá nhân hóa theo mục tiêu nghề nghiệp</span>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* CỘT PHẢI */}
-      <div className="register-right">
-        <div className="register-form-container">
-          <h1>Tạo tài khoản mới</h1>
-          <span className="sub-text">Điền thông tin bên dưới để bắt đầu hành trình.</span>
+      <div className="auth-right">
+        <div className="auth-form-container">
+          <h1 className="auth-title">Tạo tài khoản mới</h1>
+          <span className="auth-subtitle">Điền thông tin bên dưới để bắt đầu hành trình.</span>
 
           <Form layout="vertical" onFinish={onFinish} size="large">
             <Form.Item
@@ -170,43 +185,35 @@ function Register() {
               <Input.Password prefix={<LockOutlined />} placeholder="Xác nhận mật khẩu" />
             </Form.Item>
 
-            <Button type="primary" htmlType="submit" block className="btn-register" loading={loading}>
+            <Button type="primary" htmlType="submit" block className="btn-auth" loading={loading}>
               Đăng ký tài khoản
             </Button>
           </Form>
 
-          <Button 
-            type="dashed" 
-            block 
-            style={{ marginTop: 15, borderColor: '#1890ff', color: '#1890ff' }}
-            onClick={() => navigate('/login')}
-          >
-            Đăng nhập nhanh dành cho Nhà tuyển dụng (Demo)
-          </Button>
-
-          <Divider style={{color: '#999', fontSize: 13}}>Hoặc đăng ký với</Divider>
+          <Divider style={{ color: '#999', fontSize: 13 }}>Hoặc tiếp tục với</Divider>
           
           <div className="social-btn-group">
             <Button 
-                block 
-                icon={<GoogleOutlined />} 
-                loading={socialLoading}
-                onClick={handleGoogleLogin}
+              block 
+              className="btn-google"
+              icon={<GoogleOutlined />} 
+              loading={socialLoading}
+              onClick={handleGoogleLogin}
             >
-                Google
+              Google
             </Button>
             <Button 
-                block 
-                icon={<FacebookFilled style={{color: '#3b5998'}}/>} 
-                disabled
-                onClick={() => message.info('Tính năng đang phát triển')}
+              block 
+              icon={<FacebookFilled style={{ color: '#3b5998' }} />} 
+              disabled
+              onClick={() => message.info('Tính năng đang phát triển')}
             >
-                Facebook
+              Facebook
             </Button>
           </div>
 
-          <div className="auth-actions">
-             Đã có tài khoản? <NavLink to="/login">Đăng nhập ngay</NavLink>
+          <div className="auth-action-footer">
+            Đã có tài khoản? <NavLink to="/login" className="link-bold">Đăng nhập ngay</NavLink>
           </div>
         </div>
       </div>

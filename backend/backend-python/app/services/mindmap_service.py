@@ -23,7 +23,7 @@ def generate_mindmap(topic: str) -> Dict[str, Any]:
     # --- 1. Thử sinh bằng Google Gemini Pool (gemini-3.5-flash, gemini-3.7-flash, etc.) ---
     gemini_key = get_gemini_key()
     if gemini_key:
-        candidate_models = ['gemini-3.5-flash', 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-3.5-flash-lite']
+        candidate_models = ['gemini-3.6-flash', 'gemini-flash-latest', 'gemini-3.7-flash', 'gemini-3.5-flash']
         for model_name in candidate_models:
             try:
                 genai.configure(api_key=gemini_key, transport='rest')

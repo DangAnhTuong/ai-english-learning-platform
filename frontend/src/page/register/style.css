@@ -2,16 +2,18 @@
    AUTH LOGIN / REGISTER - SPEAK.COM VIBRANT EDTECH
    ======================================================== */
 
-.auth-page {
-  height: 100vh;
+.auth-page,
+.register-page {
+  min-height: 100vh;
   width: 100%;
   display: flex;
   background-color: #f8fafc;
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 /* --- CỘT TRÁI (LEFT SHOWCASE) --- */
-.auth-left {
+.auth-left,
+.register-left {
   flex: 1.1;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
   display: flex;
@@ -25,7 +27,8 @@
   overflow: hidden;
 }
 
-.auth-left::before {
+.auth-left::before,
+.register-left::before {
   content: '';
   position: absolute;
   top: -20%;
@@ -37,11 +40,11 @@
 }
 
 .hero-img {
-  max-width: 320px;
+  max-width: 280px;
   height: auto;
   object-fit: contain;
   filter: drop-shadow(0 20px 30px rgba(0, 114, 255, 0.25));
-  margin-bottom: 28px;
+  margin-bottom: 24px;
   border-radius: 24px;
 }
 
@@ -59,7 +62,8 @@
   margin-bottom: 16px;
 }
 
-.auth-left h2 {
+.auth-left h2,
+.register-left h2 {
   font-size: 32px;
   color: #ffffff !important;
   font-weight: 900;
@@ -67,12 +71,13 @@
   margin-bottom: 12px;
 }
 
-.auth-left p {
+.auth-left p,
+.register-left p {
   font-size: 16px;
   color: #94a3b8;
   max-width: 440px;
   line-height: 1.6;
-  margin-bottom: 30px;
+  margin-bottom: 26px;
 }
 
 /* Feature bullets */
@@ -98,11 +103,13 @@
 }
 
 @media (max-width: 992px) {
-  .auth-left { display: none; }
+  .auth-left,
+  .register-left { display: none !important; }
 }
 
 /* --- CỘT PHẢI (RIGHT FORM) --- */
-.auth-right {
+.auth-right,
+.register-right {
   flex: 1;
   display: flex;
   justify-content: center;
@@ -110,38 +117,45 @@
   padding: 40px 24px;
   background-color: #ffffff;
   overflow-y: auto;
+  max-height: 100vh;
 }
 
-.auth-form-container {
+.auth-form-container,
+.register-form-container {
   width: 100%;
   max-width: 440px;
   padding: 20px;
 }
 
-.auth-title {
-  font-size: 32px;
+.auth-title,
+.register-form-container h1 {
+  font-size: 30px;
   font-weight: 900;
   color: #0f172a;
   letter-spacing: -0.5px;
   margin-bottom: 6px;
 }
 
-.auth-subtitle {
+.auth-subtitle,
+.sub-text {
   color: #64748b;
   display: block;
-  font-size: 15px;
-  margin-bottom: 28px;
+  font-size: 14.5px;
+  margin-bottom: 24px;
 }
 
 .auth-form-container .ant-input,
-.auth-form-container .ant-input-password {
+.auth-form-container .ant-input-password,
+.register-form-container .ant-input,
+.register-form-container .ant-input-password {
   border-radius: 12px !important;
   height: 48px;
   font-size: 15px;
 }
 
-.btn-auth {
-  height: 50px !important;
+.btn-auth,
+.btn-register {
+  height: 48px !important;
   font-size: 16px !important;
   font-weight: 800 !important;
   border-radius: 14px !important;
@@ -150,9 +164,11 @@
   box-shadow: 0 6px 20px rgba(0, 114, 255, 0.35);
   color: #ffffff !important;
   transition: all 0.25s ease;
+  margin-top: 8px;
 }
 
-.btn-auth:hover {
+.btn-auth:hover,
+.btn-register:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 25px rgba(0, 114, 255, 0.45);
 }
@@ -170,17 +186,36 @@
   color: #0072ff !important;
 }
 
-/* Demo buttons */
-.demo-buttons-row {
+.social-btn-group {
   display: flex;
   gap: 12px;
-  margin-top: 10px;
+  margin-bottom: 20px;
 }
 
-.btn-demo-role {
-  flex: 1;
-  height: 42px;
-  border-radius: 10px;
+.social-btn-group .ant-btn {
+  height: 46px !important;
+  border-radius: 12px !important;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.auth-action-footer,
+.auth-actions {
+  text-align: center;
+  margin-top: 20px;
+  color: #64748b;
+  font-size: 14.5px;
+}
+
+.link-bold {
+  color: #0072ff;
   font-weight: 700;
-  font-size: 13.5px;
+  text-decoration: none;
+  margin-left: 4px;
+}
+
+.link-bold:hover {
+  text-decoration: underline;
 }
